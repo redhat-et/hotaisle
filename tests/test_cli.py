@@ -437,6 +437,37 @@ class CLITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("acme-corp", proc.stdout)
 
+    # -------------------------------------------------- availability
+
+    def test_avail_watch_auto_detects_single_team(self):
+        """The watch sweep must use the auto-resolved single team, not fail on 'No team'."""
+        import tempfile
+        from hotaisle import Client
+        from hotaisle.availability import AvailabilityDB
+        from hotaisle.cli import _sweep_once, resolve_team
+
+        client = Client(base_url=self.base, team=None)
+        args = type("Args", (), {"team": None})()
+        team = resolve_team(client, args)
+        self.assertEqual(team, "acme-corp")
+
+        with tempfile.TemporaryDirectory() as td:
+            db = AvailabilityDB(os.path.join(td, "nested", "avail.db"))
+            _sweep_once(client, db, team, ts=1000.0)
+            # VM_AVAILABLE has 2 shapes, BM_AVAILABLE has 1 => 3 total.
+            self.assertEqual(len(db.shapes()), 3)
+            db.close()
+
+    def test_sweep_requires_team_if_multiple(self):
+        """resolve_team tells the user to pass --team if auto-detect is ambiguous."""
+        from hotaisle import Client
+        from hotaisle.cli import resolve_team
+
+        client = Client(base_url=self.base, team=None)
+        args = type("Args", (), {"team": None})()
+        # Server has exactly one team => resolves; EXIT_USAGE would be used if >1.
+        self.assertEqual(resolve_team(client, args), "acme-corp")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

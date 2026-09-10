@@ -651,16 +651,14 @@ def _open_avail_db(args: argparse.Namespace) -> AvailabilityDB:
     return AvailabilityDB(args.db)
 
 
-def _sweep_once(client: Client, db: AvailabilityDB, ts: float) -> None:
+def _sweep_once(client: Client, db: AvailabilityDB, team: str, ts: float) -> None:
     """Record one snapshot of both VM and bare-metal availability."""
-    from .availability import shape_key_of
-
-    kinds = [(kind, getattr(client, method)) for kind, method in
+    kinds = [(kind, getattr(client, method), team) for kind, method in
              (("vm", "list_available_virtual_machines"),
               ("bm", "list_available_bare_metal"))]
-    for kind, fn in kinds:
+    for kind, fn, team in kinds:
         try:
-            listings = fn()
+            listings = fn(team)
         except HotAisleError as exc:
             # A transient failure to one endpoint must not kill the sweep or
             # lose the other half. Print and move on.
@@ -673,6 +671,7 @@ def _sweep_once(client: Client, db: AvailabilityDB, ts: float) -> None:
 def cmd_avail_watch(args: argparse.Namespace) -> int:
     """Loop every ``--interval`` seconds, recording availability to SQLite."""
     client = make_client(args)
+    team = resolve_team(client, args)
     db = _open_avail_db(args)
     interval = max(1, int(args.interval))
     keep = args.retention_days * 86400.0
@@ -680,7 +679,7 @@ def cmd_avail_watch(args: argparse.Namespace) -> int:
     try:
         while True:
             ts = time.time()
-            _sweep_once(client, db, ts)
+            _sweep_once(client, db, team, ts)
             removed = db.prune(keep)
             if not getattr(args, "quiet", False):
                 print("[%s] sweep #%d done (pruned %d rows)"
