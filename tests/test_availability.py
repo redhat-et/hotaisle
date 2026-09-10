@@ -48,6 +48,18 @@ class AvailabilityTestCase(unittest.TestCase):
         shapes = self.db.shapes()
         self.assertEqual(list(shapes), [])
 
+    def test_creates_parent_directory_automatically(self):
+        # A non-existent nested path must be created, not fail.
+        import tempfile
+        nested = os.path.join(tempfile.mkdtemp(), "does", "not", "exist", "avail.db")
+        db = AvailabilityDB(nested)
+        self.assertTrue(os.path.isdir(os.path.dirname(nested)))
+        self.assertTrue(os.path.isfile(nested))
+        db.close()
+        import shutil
+        shutil.rmtree(os.path.dirname(os.path.dirname(os.path.dirname(nested))),
+                     ignore_errors=True)
+
     def test_record_creates_shape_and_sample(self):
         n = self.db.record("vm", [_avail("a", 2)], ts=1000.0)
         self.assertEqual(n, 1)

@@ -18,6 +18,7 @@ Stdlib only (``sqlite3``, ``time``, ``json``) -- no third-party deps.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -87,7 +88,10 @@ class AvailabilityDB:
     """
 
     def __init__(self, path: Optional[str] = None):
-        self.path = path or default_db_path()
+        self.path = os.path.expanduser(path) if path else default_db_path()
+        parent = os.path.dirname(self.path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.lock = threading.RLock()
