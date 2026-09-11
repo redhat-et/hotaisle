@@ -438,8 +438,16 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(vm.specs.cpu_cores, 8)
         self.assertEqual(vm.specs.ram_capacity, 34359738368)
         self.assertAlmostEqual(vm.specs.ram_gib, 32.0)
-        self.assertEqual(vm.ssh_access.ssh_command, "ssh -p 2222 root@vm01.example.com")
+        self.assertEqual(vm.ssh_access.ssh_command, "ssh -p 2222 hotaisle@vm01.example.com")
         self.assertIn("vm-01", vm.name)
+
+    def test_ssh_user_from_config_is_used(self):
+        """A config-provided ssh_user overrides the default for ssh_command/ssh_target."""
+        cfg = Client(base_url=self.base, team="acme-corp", max_retries=1, timeout=10,
+                   config={"ssh_user": "deployer"})
+        vm = cfg.list_virtual_machines()[0]
+        self.assertEqual(vm.ssh_access.ssh_command, "ssh -p 2222 deployer@vm01.example.com")
+        self.assertEqual(vm.ssh_access.ssh_target, "deployer@vm01.example.com:2222")
 
     def test_list_bm_flattened_specs_and_hardware(self):
         """GET /bare_metal/ flattens specs (allOf), not nested."""

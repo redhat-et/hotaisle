@@ -172,23 +172,28 @@ class Specs(_Model):
         return text
 
 
+DEFAULT_SSH_USER = "hotaisle"
+
+
 class ExternalService(_Model):
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
+    def __init__(self, raw: Optional[Dict[str, Any]] = None, ssh_user: Optional[str] = None, **extra: Any):
         self.raw = raw or {}
         self.ip_address = pick(self.raw, "ip_address", "IPAddress")
         self.port = as_bytes(pick(self.raw, "port", "Port"))
         self.dns_name = pick(self.raw, "dns_name", "DNSName", "DnsName")
+        self.ssh_user = ssh_user or DEFAULT_SSH_USER
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExternalService":
-        return cls(raw=data)
+    def from_dict(cls, data: Dict[str, Any], ssh_user: Optional[str] = None) -> "ExternalService":
+        return cls(raw=data, ssh_user=ssh_user)
 
     @property
     def ssh_target(self) -> str:
         host = self.dns_name or self.ip_address
         if not host:
             return "-"
-        return "%s:%s" % (host, self.port) if self.port else str(host)
+        target = "%s@%s" % (self.ssh_user, host)
+        return "%s:%s" % (target, self.port) if self.port else target
 
     @property
     def ssh_command(self) -> Optional[str]:
@@ -196,27 +201,28 @@ class ExternalService(_Model):
         if not host:
             return None
         if self.port and int(self.port) != 22:
-            return "ssh -p %s root@%s" % (self.port, host)
-        return "ssh root@%s" % host
+            return "ssh -p %s %s@%s" % (self.port, self.ssh_user, host)
+        return "ssh %s@%s" % (self.ssh_user, host)
 
 
 class VirtualMachine(_Model):
     """A VM assigned to a team (VirtualMachineDetails = VirtualMachine + specs)."""
 
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
+    def __init__(self, raw: Optional[Dict[str, Any]] = None, ssh_user: Optional[str] = None, **extra: Any):
         self.raw = raw or {}
         self.deployment_id = pick(self.raw, "deployment_id", "DeploymentID")
         self.name = pick(self.raw, "name", "Name")
         self.description = pick(self.raw, "description", "Description")
         self.ip_address = pick(self.raw, "ip_address", "IPAddress")
+        self.ssh_user = ssh_user or DEFAULT_SSH_USER
         ssh = pick(self.raw, "ssh_access", "SSHAccess")
-        self.ssh_access = ExternalService.from_dict(ssh) if ssh else None
+        self.ssh_access = ExternalService.from_dict(ssh, ssh_user=self.ssh_user) if ssh else None
         # Specs arrive flattened into the same object for VMs.
         self.specs = Specs(raw=self.raw)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VirtualMachine":
-        return cls(raw=data)
+    def from_dict(cls, data: Dict[str, Any], ssh_user: Optional[str] = None) -> "VirtualMachine":
+        return cls(raw=data, ssh_user=ssh_user)
 
     @property
     def ssh_target(self) -> str:
@@ -228,7 +234,7 @@ class VirtualMachine(_Model):
     def ssh_command(self) -> Optional[str]:
         if self.ssh_access:
             return self.ssh_access.ssh_command
-        return "ssh root@%s" % self.ip_address if self.ip_address else None
+        return "ssh %s@%s" % (self.ssh_user, self.ip_address) if self.ip_address else None
 
     @property
     def id_or_name(self) -> str:
@@ -238,7 +244,7 @@ class VirtualMachine(_Model):
 class BareMetalServer(_Model):
     """A reserved bare metal server (BareMetalServerDetails = server + specs)."""
 
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
+    def __init__(self, raw: Optional[Dict[str, Any]] = None, ssh_user: Optional[str] = None, **extra: Any):
         self.raw = raw or {}
         self.deployment_id = pick(self.raw, "deployment_id", "DeploymentID")
         self.name = pick(self.raw, "name", "Name")
@@ -248,15 +254,16 @@ class BareMetalServer(_Model):
         self.model = pick(self.raw, "model", "Model")
         self.support_access_enabled = pick(self.raw, "support_access_enabled",
                                           "SupportAccessEnabled", default=False)
+        self.ssh_user = ssh_user or DEFAULT_SSH_USER
         ssh = pick(self.raw, "ssh_access", "SSHAccess")
-        self.ssh_access = ExternalService.from_dict(ssh) if ssh else None
+        self.ssh_access = ExternalService.from_dict(ssh, ssh_user=self.ssh_user) if ssh else None
         nested = pick(self.raw, "specs", "Specs")
         self.specs = Specs.from_dict(nested) if isinstance(nested, dict) else Specs(raw=self.raw)
         self.os_status = pick(self.raw, "os_status", "OSStatus", "OsStatus")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BareMetalServer":
-        return cls(raw=data)
+    def from_dict(cls, data: Dict[str, Any], ssh_user: Optional[str] = None) -> "BareMetalServer":
+        return cls(raw=data, ssh_user=ssh_user)
 
     @property
     def hardware(self) -> str:
@@ -267,7 +274,7 @@ class BareMetalServer(_Model):
     def ssh_command(self) -> Optional[str]:
         if self.ssh_access:
             return self.ssh_access.ssh_command
-        return "ssh root@%s" % self.ip_address if self.ip_address else None
+        return "ssh %s@%s" % (self.ssh_user, self.ip_address) if self.ip_address else None
 
     @property
     def id_or_name(self) -> str:

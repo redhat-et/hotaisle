@@ -88,6 +88,11 @@ class Client:
 
         self.base_url = self._resolve_base_url(base_url)
         self.team = team or os.environ.get("HOTAISLE_TEAM") or self.config.get("team")
+        self.ssh_user = (
+            os.environ.get("HOTAISLE_SSH_USER")
+            or self.config.get("ssh_user")
+            or models.DEFAULT_SSH_USER
+        )
         self.timeout = float(timeout)
         self.max_retries = int(max_retries)
         self.backoff = float(backoff)
@@ -276,7 +281,7 @@ class Client:
     def list_virtual_machines(self, team: Optional[str] = None) -> List[models.VirtualMachine]:
         """GET /teams/{team}/virtual_machines/ — VMs currently assigned to the team."""
         data = self.get(self._team_path(team, "/virtual_machines/")).json or []
-        return [models.VirtualMachine.from_dict(vm) for vm in data]
+        return [models.VirtualMachine.from_dict(vm, ssh_user=self.ssh_user) for vm in data]
 
     def list_available_virtual_machines(
         self, team: Optional[str] = None
@@ -289,7 +294,7 @@ class Client:
         self, deployment_id: str, team: Optional[str] = None
     ) -> models.VirtualMachine:
         path = self._team_path(team, "/virtual_machines/%s/" % _ident(deployment_id))
-        return models.VirtualMachine.from_dict(self.get(path).json or {})
+        return models.VirtualMachine.from_dict(self.get(path).json or {}, ssh_user=self.ssh_user)
 
     def get_virtual_machine_state(
         self, deployment_id: str, team: Optional[str] = None
@@ -321,7 +326,7 @@ class Client:
         )
         resp = self.post(self._team_path(team, "/virtual_machines/"),
                          json_body=payload, params={"force": force} if force else None)
-        return models.VirtualMachine.from_dict(resp.json or {})
+        return models.VirtualMachine.from_dict(resp.json or {}, ssh_user=self.ssh_user)
 
     def delete_virtual_machine(
         self, deployment_id: str, team: Optional[str] = None, force: bool = False
@@ -346,7 +351,7 @@ class Client:
     def list_bare_metal(self, team: Optional[str] = None) -> List[models.BareMetalServer]:
         """GET /teams/{team}/bare_metal/ — servers currently reserved by the team."""
         data = self.get(self._team_path(team, "/bare_metal/")).json or []
-        return [models.BareMetalServer.from_dict(s) for s in data]
+        return [models.BareMetalServer.from_dict(s, ssh_user=self.ssh_user) for s in data]
 
     def list_available_bare_metal(self, team: Optional[str] = None) -> List[models.AvailableType]:
         """GET /teams/{team}/bare_metal/available/ — reservable server types + pricing."""
@@ -357,7 +362,7 @@ class Client:
         self, deployment_id: str, team: Optional[str] = None
     ) -> models.BareMetalServer:
         path = self._team_path(team, "/bare_metal/%s/" % _ident(deployment_id))
-        return models.BareMetalServer.from_dict(self.get(path).json or {})
+        return models.BareMetalServer.from_dict(self.get(path).json or {}, ssh_user=self.ssh_user)
 
     def create_bare_metal(
         self,
@@ -385,7 +390,7 @@ class Client:
             payload.setdefault("description", description)
         resp = self.post(self._team_path(team, "/bare_metal/"),
                          json_body=payload, params={"force": force} if force else None)
-        return models.BareMetalServer.from_dict(resp.json or {})
+        return models.BareMetalServer.from_dict(resp.json or {}, ssh_user=self.ssh_user)
 
     def delete_bare_metal(
         self, deployment_id: str, team: Optional[str] = None, force: bool = False

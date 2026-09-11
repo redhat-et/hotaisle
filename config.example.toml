@@ -30,5 +30,10 @@ key_command = "pass show hotaisle/api"          # or: op read op://personal/hota
 #    and set HOTAISLE_KEYRING=1 (or use_keyring = true below).
 # use_keyring = false
 
+# SSH login user for provisioned VMs / bare metal. Used in the generated
+# `ssh_target` / `ssh_command` strings. Defaults to "hotaisle". Also settable
+# via $HOTAISLE_SSH_USER, which takes precedence.
+# ssh_user = "hotaisle"
+
 # Create and manage keys at https://admin.hotaisle.app/ or with:
 #   hotaisle api-keys                 # GET /user/api_keys/
