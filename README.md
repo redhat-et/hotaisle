@@ -190,14 +190,14 @@ metal is commonly 8h+ and the API refuses an early release.
 
 `POST /teams/{team}/virtual_machines/` and `/bare_metal/` require an exact spec
 match against real inventory. Rather than make you hand-type byte counts, the
-CLI can copy the shape straight out of the `available` listing:
+CLI matches a shape by **specs** from the `available` listing:
 
 ```sh
-hotaisle vm create --from-available 1 --description "build box"
-hotaisle bm create --from-available 1 --description "training node"
+hotaisle vm create --cpu-cores 8 --ram 224GiB --disk 12TiB --gpus 1 --description "build box"
+hotaisle bm create --cpu-cores 64 --ram 512G --disk 4T --gpus 8 --description "training node"
 ```
 
-Or describe a shape and let the CLI pick the cheapest thing that fits:
+Or describe minimums and let the CLI pick the cheapest thing that fits:
 
 ```sh
 hotaisle vm create --cpu-cores 4 --ram 16G --disk 200G --gpus 1

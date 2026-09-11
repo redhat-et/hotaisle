@@ -2,7 +2,7 @@
 
     hotaisle vm list
     hotaisle vm available
-    hotaisle vm create --from-available 1 --description "build box"
+    hotaisle vm create --cpu-cores 8 --ram 224GiB --disk 12TiB --gpus 1 --description "build box"
     hotaisle vm delete <deployment_id> --yes
     hotaisle bm list
     hotaisle --json bm available
@@ -20,7 +20,7 @@ import os
 import sys
 import time
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from . import models
 from .auth import NO_KEY_HINT, mask
@@ -151,38 +151,6 @@ def resolve_team(client: Client, args: argparse.Namespace) -> str:
         print("  %s  (%s)  roles=%s" % (t.handle, t.name, ",".join(t.roles)),
               file=sys.stderr)
     sys.exit(EXIT_USAGE)
-
-
-def find_available(client: Client, kind: str, team: str, ref: str
-                   ) -> Tuple[AvailableType, int]:
-    """Resolve a --from-available reference to (available_type, 0-based row index).
-
-    Accepts the 1-based row numbers the table prints, the 0-based index, or a
-    case-insensitive substring of the shape label / raw JSON.
-    """
-    listing = (client.list_available_virtual_machines(team) if kind == "vm"
-               else client.list_available_bare_metal(team))
-    if not listing:
-        die("The API reports no available %s types for this team right now." % kind)
-    ref = str(ref).strip()
-    if ref.isdigit():
-        idx = int(ref)
-        # Accept either 0-based row numbers or the 1-based numbers the table prints.
-        rows = list(enumerate(listing))
-        hit = [x for x in rows if x[0] + 1 == idx] or [x for x in rows if x[0] == idx]
-        if not hit:
-            die("Row %s is out of range (1..%d). Run 'hotaisle %s available' to see them."
-                % (ref, len(listing), kind))
-        return hit[0][1], hit[0][0]
-    matches = [(i, a) for i, a in enumerate(listing)
-               if ref.lower() in a.label.lower() or ref.lower() in json.dumps(a.raw).lower()]
-    if len(matches) == 1:
-        return matches[0][1], matches[0][0]
-    if not matches:
-        die("No available %s type matches %r. Run 'hotaisle %s available'." %
-            (kind, ref, kind))
-    die("Reference %r is ambiguous (%d matches). Narrow it down or use a row number."
-        % (ref, len(matches)))
 
 
 def choose_shape(listing: List[AvailableType], cpu: Optional[int], ram: Optional[int],
@@ -341,8 +309,6 @@ def cmd_vm_available(args: argparse.Namespace) -> int:
     items = client.list_available_virtual_machines(team)
     emit(_available_rows(items), ["#", "QTY", "VCPU", "RAM", "DISK", "GPUs", "PRICE",
                                   "MIN RESV"], args, json_data=[a.raw for a in items])
-    if items and not (args.json or args.csv):
-        print(_dim("\ncreate one with: hotaisle vm create --from-available <#>"))
     return EXIT_OK
 
 
@@ -352,8 +318,6 @@ def cmd_bm_available(args: argparse.Namespace) -> int:
     items = client.list_available_bare_metal(team)
     emit(_available_rows(items), ["#", "QTY", "VCPU", "RAM", "DISK", "GPUs", "PRICE",
                                   "MIN RESV"], args, json_data=[a.raw for a in items])
-    if items and not (args.json or args.csv):
-        print(_dim("\nreserve one with: hotaisle bm create --from-available <#>"))
     return EXIT_OK
 
 
@@ -371,51 +335,45 @@ def _create_common(args: argparse.Namespace, client: Client, kind: str, team: st
             body.setdefault("description", args.description)
         return body if kind == "vm" else {"specs": body.get("specs", body)}
 
-    if args.from_available is not None:
-        avail, row = find_available(client, kind, team, args.from_available)
+    try:
+        cpu = args.cpu_cores
+        ram = models.parse_size(args.ram)
+        disk = models.parse_size(args.disk)
+    except ValueError as exc:
+        die(str(exc))
+    gpus = args.gpus
+    if cpu is None and ram is None and disk is None and gpus is None:
+        die("Specify a shape (--cpu-cores/--ram/--disk/--gpus) or pass --json-body.")
+    listing = (client.list_available_virtual_machines(team) if kind == "vm"
+               else client.list_available_bare_metal(team))
+    exact = [a for a in listing if
+             (a.specs.cpu_cores == cpu if cpu is not None else True)
+             and (a.specs.ram_capacity == ram if ram is not None else True)
+             and (a.specs.disk_capacity == disk if disk is not None else True)
+             and (a.specs.gpu_count == gpus if gpus is not None else True)] if (
+        cpu is not None or ram is not None or disk is not None or gpus is not None) else []
+    if exact:
+        avail = exact[0]
         specs = specs_to_selector(avail)
-        print(_dim("selected available type #%s: %s (qty %s, %s/hr, min %s)"
-                   % (row + 1, avail.specs.full_label, avail.quantity,
-                      avail.price_per_hour, avail.minimum_reservation)),
-              file=sys.stderr)
+        print(_dim("matched available type: %s (qty %s, %s/hr, min %s)"
+                   % (avail.specs.full_label, avail.quantity, avail.price_per_hour,
+                      avail.minimum_reservation)), file=sys.stderr)
+    elif args.exact:
+        specs = _specs_or_die(cpu, ram, disk, gpus)
+        print(_yellow("warning: no available type matches these specs exactly; "
+                      "the API will likely 404"), file=sys.stderr)
     else:
-        try:
-            cpu = args.cpu_cores
-            ram = models.parse_size(args.ram)
-            disk = models.parse_size(args.disk)
-        except ValueError as exc:
-            die(str(exc))
-        gpus = args.gpus
-        if cpu is None and ram is None and disk is None and gpus is None:
-            die("Specify a shape (--cpu-cores/--ram/--disk/--gpus), use "
-                "--from-available <#>, or pass --json-body.")
-        listing = (client.list_available_virtual_machines(team) if kind == "vm"
-                   else client.list_available_bare_metal(team))
-        exact = [a for a in listing if a.specs.cpu_cores == cpu
-                 and a.specs.ram_capacity == ram and a.specs.disk_capacity == disk] if (
-            cpu is not None and ram is not None and disk is not None) else []
-        if exact:
-            avail = exact[0]
-            specs = specs_to_selector(avail)
-            print(_dim("matched available type: %s (qty %s, %s/hr, min %s)"
-                       % (avail.specs.full_label, avail.quantity, avail.price_per_hour,
-                          avail.minimum_reservation)), file=sys.stderr)
-        elif args.exact:
-            specs = _specs_or_die(cpu, ram, disk, gpus)
-            print(_yellow("warning: no available type matches these specs exactly; "
-                          "the API will likely 404"), file=sys.stderr)
-        else:
-            best = choose_shape(listing, cpu, ram, disk, gpus)
-            if best is None:
-                die("No available %s type satisfies cpu=%s ram=%s disk=%s gpus=%s. "
-                    "See 'hotaisle %s available'."
-                    % (kind, cpu, ram and models.human_bytes(ram),
-                       disk and models.human_bytes(disk), gpus, kind))
-            specs = specs_to_selector(best)
-            print(_yellow("no exact shape; smallest available that fits: %s "
-                          "(%s/hr, min %s). Re-run with --exact to force raw specs."
-                          % (best.specs.full_label, best.price_per_hour,
-                             best.minimum_reservation)), file=sys.stderr)
+        best = choose_shape(listing, cpu, ram, disk, gpus)
+        if best is None:
+            die("No available %s type satisfies cpu=%s ram=%s disk=%s gpus=%s. "
+                "See 'hotaisle %s available'."
+                % (kind, cpu, ram and models.human_bytes(ram),
+                   disk and models.human_bytes(disk), gpus, kind))
+        specs = specs_to_selector(best)
+        print(_yellow("no exact shape; smallest available that fits: %s "
+                      "(%s/hr, min %s). Re-run with --exact to force raw specs."
+                      % (best.specs.full_label, best.price_per_hour,
+                         best.minimum_reservation)), file=sys.stderr)
 
     body: Dict[str, Any] = {"specs": specs} if kind == "bm" else dict(specs)
     if args.description:
@@ -904,8 +862,6 @@ def _add_common_flags(p: argparse.ArgumentParser) -> None:
 
 
 def _add_create_flags(p: argparse.ArgumentParser, vm: bool) -> None:
-    p.add_argument("--from-available", metavar="REF",
-                   help="use the shape of an /available/ row: table row number or substring")
     p.add_argument("--cpu-cores", type=int, help="vCPUs / CPU cores")
     p.add_argument("--ram", help="RAM, e.g. 16G, 512GiB (interpreted as binary units)")
     p.add_argument("--disk", help="disk, e.g. 200G, 1.5T")

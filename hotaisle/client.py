@@ -535,7 +535,7 @@ def _specs_body(
         raise ConfigurationError(
             "Missing required spec field(s): %s. The API requires cpu_cores, "
             "ram_capacity and disk_capacity (bytes). Copy them from the "
-            "'available' listing, or use --from-available to do it automatically."
+            "'available' listing."
             % ", ".join(missing)
         )
     specs: Dict[str, Any] = {

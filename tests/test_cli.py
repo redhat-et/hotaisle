@@ -177,7 +177,6 @@ class CLITests(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("$3.50/hr", out)
         self.assertIn("30m", out)
-        self.assertIn("--from-available", out)  # discoverability hint
 
     def test_bm_available_shows_quantity_and_min(self):
         code, out, err = run_cli("bm", "available", "-t", "acme-corp")
@@ -219,34 +218,28 @@ class CLITests(unittest.TestCase):
 
     # ----------------------------------------------------------- creation
 
-    def test_vm_create_from_available_row_number(self):
-        code, out, err = run_cli("vm", "create", "--from-available", "1",
-                                 "--description", "worker", "--yes", "-t", "acme-corp")
+    def test_vm_create_selects_exact_spec_shape(self):
+        code, out, err = run_cli("vm", "create", "--cpu-cores", "8", "--ram", "32G",
+                                 "--disk", "100G", "--description", "worker", "--yes",
+                                 "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         self.assertIn("provisioned", out)
         sent = json.loads(Handler.calls[-1]["body"])
-        # Row 1 => the 8 vCPU / 32 GiB / 100 GiB shape, flattened for VMs.
+        # Exact match on 8 vCPU / 32 GiB / 100 GiB shape, flattened for VMs.
         self.assertEqual(sent["cpu_cores"], 8)
         self.assertEqual(sent["ram_capacity"], 34359738368)
         self.assertEqual(sent["disk_capacity"], 107374182400)
         self.assertEqual(sent["description"], "worker")
         self.assertNotIn("specs", sent)
 
-    def test_bm_create_from_available_wraps_specs(self):
-        code, out, err = run_cli("bm", "create", "--from-available", "1",
-                                 "--description", "gpu", "--yes", "-t", "acme-corp")
+    def test_bm_create_selects_exact_spec_shape(self):
+        code, out, err = run_cli("bm", "create", "--cpu-cores", "64", "--ram", "512G",
+                                 "--disk", "4T", "--description", "gpu", "--yes", "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         self.assertIn("reserved", out)
         sent = json.loads(Handler.calls[-1]["body"])
         self.assertEqual(sent["specs"]["cpu_cores"], 64)
         self.assertEqual(sent["description"], "gpu")
-
-    def test_vm_create_from_available_substring(self):
-        code, out, err = run_cli("vm", "create", "--from-available", "8 vCPU",
-                                 "--yes", "-t", "acme-corp")
-        self.assertEqual(code, 0, err)
-        sent = json.loads(Handler.calls[-1]["body"])
-        self.assertEqual(sent["cpu_cores"], 8)
 
     def test_vm_create_sizing_snaps_to_available(self):
         code, out, err = run_cli("vm", "create", "--cpu-cores", "4", "--ram", "16G",
@@ -276,12 +269,45 @@ class CLITests(unittest.TestCase):
         self.assertIn("No available", err)
 
     def test_dry_run_sends_nothing(self):
-        code, out, err = run_cli("vm", "create", "--from-available", "1", "--dry-run",
-                                 "-t", "acme-corp")
+        code, out, err = run_cli("vm", "create", "--cpu-cores", "8", "--ram", "32G",
+                                 "--disk", "100G", "--dry-run", "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         self.assertIn("dry run", out)
         # Reading the /available/ list is fine; sending the create POST is not.
         self.assertEqual([c for c in Handler.calls if c["method"] == "POST"], [])
+
+    def test_vm_create_gpus_disambiguates_colliding_shapes(self):
+        """--gpus selects the shape with matching GPU count even if cpu/ram/disk collide."""
+        from hotaisle import cli as cli_mod
+
+        colliding = [
+            {"Quantity": 1, "OnDemandPrice": 299, "MinimumReservationMinutes": 1,
+             "Specs": {"cpu_cores": 8, "ram_capacity": 240518168576,
+                       "disk_capacity": 13194139533312,
+                       "gpus": [{"count": 1, "manufacturer": "AMD", "model": "MI300X"}]}},
+            {"Quantity": 1, "OnDemandPrice": 598, "MinimumReservationMinutes": 1,
+             "Specs": {"cpu_cores": 8, "ram_capacity": 240518168576,
+                       "disk_capacity": 13194139533312,
+                       "gpus": [{"count": 2, "manufacturer": "AMD", "model": "MI300X"}]}},
+        ]
+        saved = Handler.do_GET
+        try:
+            def gpu_handler(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(json.dumps(colliding))))
+                self.end_headers()
+                self.wfile.write(json.dumps(colliding).encode())
+            Handler.do_GET = gpu_handler
+            # We only GET /available/ here; a POST would 404, but --cpu/--ram/--disk
+            # with --gpus 1 should exact-match the 1x MI300X row and post a create.
+            code, out, err = run_cli("vm", "create", "--cpu-cores", "8", "--ram", "224G",
+                                     "--disk", "12T", "--gpus", "1", "--yes", "-t", "acme-corp")
+            self.assertEqual(code, 0, err)
+            sent = json.loads(Handler.calls[-1]["body"])
+            self.assertEqual(sent["gpus"][0]["count"], 1)
+        finally:
+            Handler.do_GET = saved
 
     def test_confirmation_declined_sends_nothing(self):
         code, out, err = run_cli("vm", "delete", "195116dc-32ed-49e5-a738-5e2ad0cdd141",
@@ -421,7 +447,7 @@ class CLITests(unittest.TestCase):
             self.assertIn("usage", (out + err).lower(), argv)
         # Flags we promise must actually appear in the help text.
         code, out, err = run_cli("vm", "create", "--help")
-        for flag in ("--from-available", "--cpu-cores", "--ram", "--disk",
+        for flag in ("--cpu-cores", "--ram", "--disk",
                      "--user-data-url", "--dry-run", "--json-body"):
             self.assertIn(flag, out + err, flag)
         code, out, err = run_cli("bm", "delete", "--help")
