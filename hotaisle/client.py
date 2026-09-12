@@ -511,11 +511,14 @@ class Client:
     def list_ssh_keys(self) -> List[Dict[str, Any]]:
         return self.get("/user/ssh_keys/").json or []
 
-    def add_ssh_key(self, key: str, name: Optional[str] = None) -> Dict[str, Any]:
-        body = {"key": key}
-        if name:
-            body["name"] = name
-        return self.post("/user/ssh_keys/", json_body=body).json or {}
+    def add_ssh_key(self, authorized_key: str) -> Dict[str, Any]:
+        """POST /user/ssh_keys/ — ``authorized_key`` is ``<type> <key> <comment>``."""
+        return (
+            self.post(
+                "/user/ssh_keys/", json_body={"authorized_key": authorized_key}
+            ).json
+            or {}
+        )
 
     # ------------------------------------------------------------------ misc
 

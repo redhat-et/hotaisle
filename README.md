@@ -268,7 +268,7 @@ Provisioning returns **HTTP 428** unless the team has an accepted user-role
 member with an SSH key. Add one first:
 
 ```sh
-hotaisle raw POST /user/ssh_keys/ --body '{"key":"ssh-ed25519 AAAA... you@host"}'
+hotaisle raw POST /user/ssh_keys/ --body '{"authorized_key":"ssh-ed25519 AAAA... you@host"}'
 ```
 
 ---

@@ -282,6 +282,7 @@ class FakeAPI(BaseHTTPRequestHandler):
                     }
                 ],
             ),
+            ("POST", "/api/user/ssh_keys/"): (200, {"fingerprint": "AA:BB"}),
         }
         if (method, clean) in table:
             code, payload = table[(method, clean)]
@@ -552,6 +553,16 @@ class HotAisleTestCase(unittest.TestCase):
             vm.ssh_access.ssh_command, "ssh -p 2222 hotaisle@vm01.example.com"
         )
         self.assertIn("vm-01", vm.name)
+
+    def test_add_ssh_key_sends_authorized_key(self):
+        self.client.add_ssh_key("ssh-ed25519 AAAAyou you@host")
+        call = FakeAPI.calls[-1]
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["path"], "/api/user/ssh_keys/")
+        self.assertEqual(
+            json.loads(call["body"]),
+            {"authorized_key": "ssh-ed25519 AAAAyou you@host"},
+        )
 
     def test_ssh_user_from_config_is_used(self):
         """A config-provided ssh_user overrides the default for ssh_command/ssh_target."""

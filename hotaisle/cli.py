@@ -1415,7 +1415,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(
                 _dim(
                     "Upload an SSH key first: POST /user/ssh_keys/ "
-                    '(`hotaisle raw POST /user/ssh_keys/ --body \'{"key":"ssh-rsa ..."}\')'
+                    "(`hotaisle raw POST /user/ssh_keys/ "
+                    '--body \'{"authorized_key":"ssh-rsa ... user@host"}\')'
                 ),
                 file=sys.stderr,
             )
