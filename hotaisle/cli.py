@@ -918,11 +918,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- account
     p = sub.add_parser("whoami", help="show the authenticated user and teams")
+    _add_listing_flags(p)
     p.set_defaults(func=cmd_whoami)
     p = sub.add_parser("teams", help="list teams you belong to")
     _add_listing_flags(p)
     p.set_defaults(func=cmd_teams)
     p = sub.add_parser("balance", help="show a team's credit balance")
+    _add_listing_flags(p)
     _add_common_flags(p)
     p.set_defaults(func=cmd_balance)
     p = sub.add_parser("ssh-keys", help="list your SSH keys (needed before provisioning)")

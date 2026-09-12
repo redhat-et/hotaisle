@@ -398,6 +398,12 @@ class CLITests(unittest.TestCase):
         self.assertNotIn(KEY, out)  # key must be masked
         self.assertIn(KEY[:4], out)
 
+    def test_whoami_json(self):
+        code, out, err = run_cli("whoami", "--json")
+        self.assertEqual(code, 0, err)
+        self.assertIn("ops@acme.test", out)
+        self.assertIn("acme-corp", out)
+
     def test_teams_and_balance(self):
         code, out, err = run_cli("teams")
         self.assertEqual(code, 0, err)
@@ -405,6 +411,11 @@ class CLITests(unittest.TestCase):
         code, out, err = run_cli("balance", "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         self.assertIn("$250.00", out)
+
+    def test_balance_json(self):
+        code, out, err = run_cli("balance", "--json", "-t", "acme-corp")
+        self.assertEqual(code, 0, err)
+        self.assertIn("25000", out)
 
     def test_ssh_keys(self):
         code, out, err = run_cli("ssh-keys")
