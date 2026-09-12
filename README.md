@@ -232,6 +232,7 @@ hotaisle vm delete <deployment_id> --dry-run
 ```sh
 hotaisle whoami | teams | balance | api-keys | ssh-keys
 hotaisle vm get <id> | state <id>
+hotaisle vm update <id-or-name> --description "..."
 hotaisle vm action <id-or-name> start|stop|shutdown|reboot|hard-reset|rebuild|console
 hotaisle bm power <id>
 hotaisle bm action <id-or-name> reinstall|console|support_access_enable|power/...
@@ -363,6 +364,17 @@ Things worth knowing that shaped the implementation:
 - **Bare metal has a minimum reservation window**; early release → HTTP 400.
 - **`402` means the team is out of credit**, `401` on VM create is documented as
   "maximum VMs already provisioned", and `428` means no SSH key is on the team.
+- **VM create accepts no `description`** (`VMProvisionRequest` has no such
+  field), so the CLI/`create_virtual_machine` set it with a follow-up
+  `PATCH /teams/{team}/virtual_machines/{vm}/` after the create succeeds.
+- **`GET /user/` nests the identity** under a `user` key alongside a top-level
+  `teams` array (`GetUserResponse`), unlike most endpoints where the payload
+  is the object itself.
+- **`api_keys` entries use `label`** (not `name`) and return no created/expiry
+  timestamps; `user_role` and per-team `roles` describe what a key can do.
+- **Adding an SSH key takes `authorized_key`** — one string in
+  `<type> <base64> <comment>` format (`SSHKeyRequest`) — not separate
+  `key`/`name` fields.
 
 ---
 
@@ -426,7 +438,7 @@ from the spec — no API key, no network, no billable calls:
 python3 -m unittest discover -s tests -t . -v
 ```
 
-92 tests cover the header format, every key-resolution path and its precedence,
+The suite covers the header format, every key-resolution path and its precedence,
 the PascalCase/snake_case split, flattened-vs-nested specs, exact request bodies,
 `?force` encoding, deployment-id delete paths, status→exception mapping, retry
 behaviour, and every CLI verb including `--dry-run`, `--json`, `--csv` and the
@@ -442,3 +454,9 @@ summary and kind filtering.
 - `--api-key` on a command line is visible in `ps` — prefer env vars.
 - `--yes` on a delete is opt-in per invocation and never defaulted.
 - Confirmations never block on a non-TTY stdin; they abort.
+
+---
+
+## 9. License
+
+Distributed under the Apache License 2.0. See [LICENSE](LICENSE).

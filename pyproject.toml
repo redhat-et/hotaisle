@@ -26,6 +26,10 @@ keyring = ["keyring>=24"]
 [project.scripts]
 hotaisle = "hotaisle.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/redhat-et/hotaisle"
+Repository = "https://github.com/redhat-et/hotaisle"
+
 [tool.setuptools]
 packages = ["hotaisle"]
 
