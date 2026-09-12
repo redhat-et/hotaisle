@@ -1,0 +1,34 @@
+# Hot Aisle CLI configuration
+#
+# Install at ~/.config/hotaisle/config.toml (or $XDG_CONFIG_HOME/hotaisle/config.toml,
+# or point at it with $HOTAISLE_CONFIG). Then:  chmod 600 <file>
+#
+# Anything set in the environment overrides what is in here.
+
+# Your team handle. Needed by every vm/bm command; list yours with `hotaisle teams`.
+team = "your-team-handle"
+
+# API base URL. Only change this if Hot Aisle gives you a different endpoint.
+base_url = "https://admin.hotaisle.app/api"
+
+# --- pick ONE way to supply the key -------------------------------------------
+
+# 1. Inline. Simplest, but anyone who can read this file can spend money on your
+#    account, so chmod 600 it. The CLI warns if the mode is group/other-readable.
+# api_key = "your-key"
+
+# 2. Preferred for shared or unmanaged machines: keep the key in a file whose
+#    only contents are the key, or in a secrets manager, and point at it.
+#    These also work as environment variables (HOTAISLE_API_KEY_FILE /
+#    HOTAISLE_API_KEY_COMMAND) which take precedence over this file.
+# key_file = "~/.config/hotaisle/api_key"
+key_command = "pass show hotaisle/api"          # or: op read op://personal/hotaisle/api
+                                                #     or: security find-generic-password -s hotaisle -w
+
+# 3. OS keyring (needs the optional dependency): pip install 'hotaisle[keyring]'
+#    then `python -c "import keyring; keyring.set_password('hotaisle','youruser','KEY')"`
+#    and set HOTAISLE_KEYRING=1 (or use_keyring = true below).
+# use_keyring = false
+
+# Create and manage keys at https://admin.hotaisle.app/ or with:
+#   hotaisle api-keys                 # GET /user/api_keys/

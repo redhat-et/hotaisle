@@ -1,0 +1,20 @@
+#!/bin/sh
+# Launcher for the hotaisle CLI, run straight from the source tree.
+#
+# No pip install, no build backend and no third-party dependencies required --
+# the module is stdlib only.
+#
+# Install:
+#   mkdir -p ~/.local/bin
+#   sed "s#^HOTAISLE_SRC=.*#HOTAISLE_SRC=\"$(pwd)\"#" bin/hotaisle \
+#     > ~/.local/bin/hotaisle && chmod 700 ~/.local/bin/hotaisle
+#
+# Or just export HOTAISLE_SRC and call this file directly.
+HOTAISLE_SRC="${HOTAISLE_SRC:-$0}"
+# If HOTAISLE_SRC was not overridden, assume this script sits in <repo>/bin.
+case "$HOTAISLE_SRC" in
+  */bin/hotaisle) HOTAISLE_SRC=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd) ;;
+esac
+
+PYTHONPATH="$HOTAISLE_SRC${PYTHONPATH:+:$PYTHONPATH}" \
+  exec "${HOTAISLE_PYTHON:-python3}" -m hotaisle "$@"

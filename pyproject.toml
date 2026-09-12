@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hotaisle"
+version = "1.0.0"
+description = "Client and CLI for the Hot Aisle (hotManager) virtual machine and bare metal API"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+keywords = ["hotaisle", "api", "cli", "bare-metal", "virtualization", "gpu"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Environment :: Console",
+  "Intended Audience :: System Administrators",
+  "Topic :: System :: Systems Administration",
+]
+# Deliberately empty: the module runs on the standard library alone so it can be
+# dropped onto a bastion host or container with no network installs.
+dependencies = []
+
+[project.optional-dependencies]
+keyring = ["keyring>=24"]
+
+[project.scripts]
+hotaisle = "hotaisle.cli:main"
+
+[tool.setuptools]
+packages = ["hotaisle"]
+
+[tool.setuptools.package-data]
+hotaisle = ["py.typed"]
