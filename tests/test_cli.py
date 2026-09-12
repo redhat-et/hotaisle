@@ -20,7 +20,12 @@ sys.path.insert(0, ROOT)
 
 from hotaisle import cli  # noqa: E402
 from tests.test_client import (  # noqa: E402
-    BM_AVAILABLE, BMS, KEY, TEAMS, VM_AVAILABLE, VMS,
+    BM_AVAILABLE,
+    BMS,
+    KEY,
+    TEAMS,
+    VM_AVAILABLE,
+    VMS,
 )
 
 
@@ -31,10 +36,15 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def _send(self, code, payload=None, raw=None):
-        body = raw.encode() if raw else (json.dumps(payload).encode() if payload is not None
-                                         else b"")
+        body = (
+            raw.encode()
+            if raw
+            else (json.dumps(payload).encode() if payload is not None else b"")
+        )
         self.send_response(code)
-        self.send_header("Content-Type", "application/json" if payload else "text/plain")
+        self.send_header(
+            "Content-Type", "application/json" if payload else "text/plain"
+        )
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -42,20 +52,49 @@ class Handler(BaseHTTPRequestHandler):
     def handle_one(self):
         n = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(n).decode() if n else ""
-        Handler.calls.append({"method": self.command, "path": self.path, "body": body,
-                             "auth": self.headers.get("Authorization")})
+        Handler.calls.append(
+            {
+                "method": self.command,
+                "path": self.path,
+                "body": body,
+                "auth": self.headers.get("Authorization"),
+            }
+        )
         p = self.path.split("?")[0]
         if p == "/api/user/":
-            return self._send(200, {"user": {"id": 1, "email": "ops@acme.test", "name": "Ops"},
-                                    "teams": []})
+            return self._send(
+                200,
+                {
+                    "user": {"id": 1, "email": "ops@acme.test", "name": "Ops"},
+                    "teams": [],
+                },
+            )
         if p == "/api/user/api_keys/":
-            return self._send(200, [{"prefix": "abc123", "label": "my-key", "user_role": "user",
-                                     "teams": [{"handle": "acme-corp"}]}])
+            return self._send(
+                200,
+                [
+                    {
+                        "prefix": "abc123",
+                        "label": "my-key",
+                        "user_role": "user",
+                        "teams": [{"handle": "acme-corp"}],
+                    }
+                ],
+            )
         if p == "/api/teams/":
             return self._send(200, TEAMS)
         if p == "/api/user/ssh_keys/":
-            return self._send(200, [{"fingerprint": "AA:BB", "type": "ssh-rsa",
-                                     "public_key": "ssh-rsa AAAA", "comment": "me@host"}])
+            return self._send(
+                200,
+                [
+                    {
+                        "fingerprint": "AA:BB",
+                        "type": "ssh-rsa",
+                        "public_key": "ssh-rsa AAAA",
+                        "comment": "me@host",
+                    }
+                ],
+            )
 
         # Everything else is team-scoped: only acme-corp exists here, so a wrong
         # --team must genuinely 404 rather than silently succeeding.
@@ -77,16 +116,29 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, BMS)
         if self.command == "POST" and p.endswith("/virtual_machines/"):
             sent = json.loads(body or "{}")
-            return self._send(200, {"deployment_id": "new-vm", "name": "vm-new",
-                                    "ip_address": "10.0.0.5",
-                                    "cpu_cores": sent.get("cpu_cores"),
-                                    "ram_capacity": sent.get("ram_capacity"),
-                                    "disk_capacity": sent.get("disk_capacity")})
+            return self._send(
+                200,
+                {
+                    "deployment_id": "new-vm",
+                    "name": "vm-new",
+                    "ip_address": "10.0.0.5",
+                    "cpu_cores": sent.get("cpu_cores"),
+                    "ram_capacity": sent.get("ram_capacity"),
+                    "disk_capacity": sent.get("disk_capacity"),
+                },
+            )
         if self.command == "POST" and p.endswith("/bare_metal/"):
-            return self._send(201, {"deployment_id": "new-bm", "name": "bm-new",
-                                    "manufacturer": "Dell", "model": "XE9680",
-                                    "ip_address": "10.0.0.9",
-                                    "specs": json.loads(body or "{}").get("specs", {})})
+            return self._send(
+                201,
+                {
+                    "deployment_id": "new-bm",
+                    "name": "bm-new",
+                    "manufacturer": "Dell",
+                    "model": "XE9680",
+                    "ip_address": "10.0.0.9",
+                    "specs": json.loads(body or "{}").get("specs", {}),
+                },
+            )
         # POST to a per-resource action path (stop, reboot, power/cold_reboot, ...)
         if self.command == "POST":
             return self._send(200, {"ok": True})
@@ -219,21 +271,37 @@ class CLITests(unittest.TestCase):
         json.loads(out)  # would raise if a table had been printed
 
     def test_alias_invocations(self):
-        for argv in (("vms", "ls", "-t", "acme-corp"),
-                     ("virtual-machine", "available", "-t", "acme-corp"),
-                     ("metal", "list", "-t", "acme-corp")):
+        for argv in (
+            ("vms", "ls", "-t", "acme-corp"),
+            ("virtual-machine", "available", "-t", "acme-corp"),
+            ("metal", "list", "-t", "acme-corp"),
+        ):
             code, out, err = run_cli(*argv)
             self.assertEqual(code, 0, "%s: %s" % (argv, err))
 
     # ----------------------------------------------------------- creation
 
     def test_vm_create_selects_exact_spec_shape(self):
-        code, out, err = run_cli("vm", "create", "--cpu-cores", "8", "--ram", "32G",
-                                 "--disk", "100G", "--description", "worker", "--yes",
-                                 "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "create",
+            "--cpu-cores",
+            "8",
+            "--ram",
+            "32G",
+            "--disk",
+            "100G",
+            "--description",
+            "worker",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("provisioned", out)
-        sent = json.loads([c for c in Handler.calls if c["method"] == "POST"][-1]["body"])
+        sent = json.loads(
+            [c for c in Handler.calls if c["method"] == "POST"][-1]["body"]
+        )
         # Exact match on 8 vCPU / 32 GiB / 100 GiB shape, flattened for VMs.
         self.assertEqual(sent["cpu_cores"], 8)
         self.assertEqual(sent["ram_capacity"], 34359738368)
@@ -241,11 +309,26 @@ class CLITests(unittest.TestCase):
         self.assertNotIn("description", sent)
         self.assertNotIn("specs", sent)
         self.assertEqual(Handler.calls[-1]["method"], "PATCH")
-        self.assertEqual(json.loads(Handler.calls[-1]["body"]), {"description": "worker"})
+        self.assertEqual(
+            json.loads(Handler.calls[-1]["body"]), {"description": "worker"}
+        )
 
     def test_bm_create_selects_exact_spec_shape(self):
-        code, out, err = run_cli("bm", "create", "--cpu-cores", "64", "--ram", "512G",
-                                 "--disk", "4T", "--description", "gpu", "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "bm",
+            "create",
+            "--cpu-cores",
+            "64",
+            "--ram",
+            "512G",
+            "--disk",
+            "4T",
+            "--description",
+            "gpu",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("reserved", out)
         sent = json.loads(Handler.calls[-1]["body"])
@@ -253,20 +336,43 @@ class CLITests(unittest.TestCase):
         self.assertEqual(sent["description"], "gpu")
 
     def test_vm_create_sizing_snaps_to_available(self):
-        code, out, err = run_cli("vm", "create", "--cpu-cores", "4", "--ram", "16G",
-                                 "--disk", "50G", "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "create",
+            "--cpu-cores",
+            "4",
+            "--ram",
+            "16G",
+            "--disk",
+            "50G",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("smallest available that fits", err)
         sent = json.loads(Handler.calls[-1]["body"])
         self.assertEqual(sent["cpu_cores"], 8)  # snapped up to the only shippable shape
 
     def test_vm_create_exact_passthrough(self):
-        code, out, err = run_cli("vm", "create", "--exact", "--cpu-cores", "3",
-                                 "--ram", "6G", "--disk", "10G", "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "create",
+            "--exact",
+            "--cpu-cores",
+            "3",
+            "--ram",
+            "6G",
+            "--disk",
+            "10G",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         sent = json.loads(Handler.calls[-1]["body"])
         self.assertEqual(sent["cpu_cores"], 3)
-        self.assertEqual(sent["ram_capacity"], 6 * 1024 ** 3)
+        self.assertEqual(sent["ram_capacity"], 6 * 1024**3)
 
     def test_vm_create_no_shape_is_usage_error(self):
         code, out, err = run_cli("vm", "create", "--yes", "-t", "acme-corp")
@@ -274,14 +380,36 @@ class CLITests(unittest.TestCase):
         self.assertIn("cpu-cores", err)
 
     def test_vm_create_unsatisfiable_shape_fails_cleanly(self):
-        code, out, err = run_cli("vm", "create", "--cpu-cores", "512", "--ram", "4T",
-                                 "--disk", "1P", "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "create",
+            "--cpu-cores",
+            "512",
+            "--ram",
+            "4T",
+            "--disk",
+            "1P",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 1)
         self.assertIn("No available", err)
 
     def test_dry_run_sends_nothing(self):
-        code, out, err = run_cli("vm", "create", "--cpu-cores", "8", "--ram", "32G",
-                                 "--disk", "100G", "--dry-run", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "create",
+            "--cpu-cores",
+            "8",
+            "--ram",
+            "32G",
+            "--disk",
+            "100G",
+            "--dry-run",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("dry run", out)
         # Reading the /available/ list is fine; sending the create POST is not.
@@ -292,28 +420,57 @@ class CLITests(unittest.TestCase):
         from hotaisle import cli as cli_mod
 
         colliding = [
-            {"Quantity": 1, "OnDemandPrice": 299, "MinimumReservationMinutes": 1,
-             "Specs": {"cpu_cores": 8, "ram_capacity": 240518168576,
-                       "disk_capacity": 13194139533312,
-                       "gpus": [{"count": 1, "manufacturer": "AMD", "model": "MI300X"}]}},
-            {"Quantity": 1, "OnDemandPrice": 598, "MinimumReservationMinutes": 1,
-             "Specs": {"cpu_cores": 8, "ram_capacity": 240518168576,
-                       "disk_capacity": 13194139533312,
-                       "gpus": [{"count": 2, "manufacturer": "AMD", "model": "MI300X"}]}},
+            {
+                "Quantity": 1,
+                "OnDemandPrice": 299,
+                "MinimumReservationMinutes": 1,
+                "Specs": {
+                    "cpu_cores": 8,
+                    "ram_capacity": 240518168576,
+                    "disk_capacity": 13194139533312,
+                    "gpus": [{"count": 1, "manufacturer": "AMD", "model": "MI300X"}],
+                },
+            },
+            {
+                "Quantity": 1,
+                "OnDemandPrice": 598,
+                "MinimumReservationMinutes": 1,
+                "Specs": {
+                    "cpu_cores": 8,
+                    "ram_capacity": 240518168576,
+                    "disk_capacity": 13194139533312,
+                    "gpus": [{"count": 2, "manufacturer": "AMD", "model": "MI300X"}],
+                },
+            },
         ]
         saved = Handler.do_GET
         try:
+
             def gpu_handler(self):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(json.dumps(colliding))))
                 self.end_headers()
                 self.wfile.write(json.dumps(colliding).encode())
+
             Handler.do_GET = gpu_handler
             # We only GET /available/ here; a POST would 404, but --cpu/--ram/--disk
             # with --gpus 1 should exact-match the 1x MI300X row and post a create.
-            code, out, err = run_cli("vm", "create", "--cpu-cores", "8", "--ram", "224G",
-                                     "--disk", "12T", "--gpus", "1", "--yes", "-t", "acme-corp")
+            code, out, err = run_cli(
+                "vm",
+                "create",
+                "--cpu-cores",
+                "8",
+                "--ram",
+                "224G",
+                "--disk",
+                "12T",
+                "--gpus",
+                "1",
+                "--yes",
+                "-t",
+                "acme-corp",
+            )
             self.assertEqual(code, 0, err)
             sent = json.loads(Handler.calls[-1]["body"])
             self.assertEqual(sent["gpus"][0]["count"], 1)
@@ -321,36 +478,46 @@ class CLITests(unittest.TestCase):
             Handler.do_GET = saved
 
     def test_confirmation_declined_sends_nothing(self):
-        code, out, err = run_cli("vm", "delete", "195116dc-32ed-49e5-a738-5e2ad0cdd141",
-                                 "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm", "delete", "195116dc-32ed-49e5-a738-5e2ad0cdd141", "-t", "acme-corp"
+        )
         # Non-interactive stdin must refuse rather than delete or hang.
         self.assertIn("refusing", err)
         self.assertEqual([c for c in Handler.calls if c["method"] == "DELETE"], [])
 
     def test_confirmation_accepted_via_stdin(self):
-        code, out, err = run_cli("vm", "delete", "vm-01", "-t", "acme-corp",
-                                 stdin_text="y\n", tty=True)
+        code, out, err = run_cli(
+            "vm", "delete", "vm-01", "-t", "acme-corp", stdin_text="y\n", tty=True
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("Deleted VM", out)
 
     def test_confirmation_declined_by_answer(self):
-        code, out, err = run_cli("vm", "delete", "vm-01", "-t", "acme-corp",
-                                 stdin_text="n\n", tty=True)
+        code, out, err = run_cli(
+            "vm", "delete", "vm-01", "-t", "acme-corp", stdin_text="n\n", tty=True
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("aborted", out)
         self.assertEqual([c for c in Handler.calls if c["method"] == "DELETE"], [])
 
     def test_empty_stdin_does_not_delete(self):
         """EOF at the prompt (closed stdin) must be treated as 'no'."""
-        code, out, err = run_cli("vm", "delete", "vm-01", "-t", "acme-corp",
-                                 stdin_text="", tty=True)
+        code, out, err = run_cli(
+            "vm", "delete", "vm-01", "-t", "acme-corp", stdin_text="", tty=True
+        )
         self.assertIn("no answer received", err)
         self.assertEqual([c for c in Handler.calls if c["method"] == "DELETE"], [])
 
     def test_json_body_override(self):
-        code, out, err = run_cli("bm", "create", "--json-body",
-                                 '{"specs":{"cpu_cores":4,"ram_capacity":1,"disk_capacity":1}}',
-                                 "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "bm",
+            "create",
+            "--json-body",
+            '{"specs":{"cpu_cores":4,"ram_capacity":1,"disk_capacity":1}}',
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         sent = json.loads(Handler.calls[-1]["body"])
         self.assertEqual(sent["specs"]["cpu_cores"], 4)
@@ -358,8 +525,14 @@ class CLITests(unittest.TestCase):
     # ----------------------------------------------------------- deletion
 
     def test_vm_delete_by_id(self):
-        code, out, err = run_cli("vm", "delete", "195116dc-32ed-49e5-a738-5e2ad0cdd141",
-                                 "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "delete",
+            "195116dc-32ed-49e5-a738-5e2ad0cdd141",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("Deleted VM vm-01", out)
         last = Handler.calls[-1]
@@ -372,19 +545,24 @@ class CLITests(unittest.TestCase):
         self.assertIn("195116dc", Handler.calls[-1]["path"])
 
     def test_bm_delete_by_name(self):
-        code, out, err = run_cli("bm", "delete", "server-01", "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "bm", "delete", "server-01", "--yes", "-t", "acme-corp"
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("Released server", out)
         self.assertIn("77b3e2a2", Handler.calls[-1]["path"])
 
     def test_vm_delete_with_force(self):
-        code, out, err = run_cli("vm", "delete", "vm-01", "--yes", "--force",
-                                 "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm", "delete", "vm-01", "--yes", "--force", "-t", "acme-corp"
+        )
         self.assertEqual(code, 0, err)
         self.assertIn("force=true", Handler.calls[-1]["path"])
 
     def test_vm_delete_dry_run(self):
-        code, out, err = run_cli("vm", "delete", "vm-01", "--dry-run", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm", "delete", "vm-01", "--dry-run", "-t", "acme-corp"
+        )
         self.assertEqual(code, 0, err)
         self.assertEqual([c for c in Handler.calls if c["method"] == "DELETE"], [])
 
@@ -443,18 +621,23 @@ class CLITests(unittest.TestCase):
     def test_vm_action(self):
         code, out, err = run_cli("vm", "action", "vm-01", "stop", "-t", "acme-corp")
         self.assertEqual(code, 0, err)
-        self.assertTrue(Handler.calls[-1]["path"].endswith("/virtual_machines/"
-                                                          "195116dc-32ed-49e5-a738-"
-                                                          "5e2ad0cdd141/stop/"))
+        self.assertTrue(
+            Handler.calls[-1]["path"].endswith(
+                "/virtual_machines/" "195116dc-32ed-49e5-a738-" "5e2ad0cdd141/stop/"
+            )
+        )
 
     def test_vm_update(self):
-        code, out, err = run_cli("vm", "update", "vm-01", "--description", "renamed",
-                                 "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm", "update", "vm-01", "--description", "renamed", "-t", "acme-corp"
+        )
         self.assertEqual(code, 0, err)
         self.assertEqual(Handler.calls[-1]["method"], "PATCH")
-        self.assertTrue(Handler.calls[-1]["path"].endswith("/virtual_machines/"
-                                                          "195116dc-32ed-49e5-a738-"
-                                                          "5e2ad0cdd141/"))
+        self.assertTrue(
+            Handler.calls[-1]["path"].endswith(
+                "/virtual_machines/" "195116dc-32ed-49e5-a738-" "5e2ad0cdd141/"
+            )
+        )
         self.assertIn("renamed", json.loads(Handler.calls[-1]["body"])["description"])
 
     def test_vm_update_requires_description(self):
@@ -463,21 +646,33 @@ class CLITests(unittest.TestCase):
         self.assertNotIn("PATCH", [c["method"] for c in Handler.calls])
 
     def test_vm_create_with_description_patches(self):
-        code, out, err = run_cli("vm", "create", "--json-body",
-                                 '{"cpu_cores":8,"ram_capacity":34359738368,'
-                                 '"disk_capacity":107374182400}',
-                                 "--description", "build box", "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "vm",
+            "create",
+            "--json-body",
+            '{"cpu_cores":8,"ram_capacity":34359738368,'
+            '"disk_capacity":107374182400}',
+            "--description",
+            "build box",
+            "--yes",
+            "-t",
+            "acme-corp",
+        )
         self.assertEqual(code, 0, err)
         self.assertEqual(Handler.calls[-1]["method"], "PATCH")
-        self.assertEqual(json.loads(Handler.calls[-1]["body"])["description"], "build box")
+        self.assertEqual(
+            json.loads(Handler.calls[-1]["body"])["description"], "build box"
+        )
 
     def test_bm_power_action_requires_confirm(self):
-        code, out, err = run_cli("bm", "action", "server-01", "power/cold_reboot",
-                                 "-t", "acme-corp")
+        code, out, err = run_cli(
+            "bm", "action", "server-01", "power/cold_reboot", "-t", "acme-corp"
+        )
         self.assertIn("refusing", err)
         self.assertEqual([c for c in Handler.calls if c["method"] == "POST"], [])
-        code, out, err = run_cli("bm", "action", "server-01", "power/cold_reboot",
-                                 "--yes", "-t", "acme-corp")
+        code, out, err = run_cli(
+            "bm", "action", "server-01", "power/cold_reboot", "--yes", "-t", "acme-corp"
+        )
         self.assertEqual(code, 0, err)
         posts = [c for c in Handler.calls if c["method"] == "POST"]
         self.assertTrue(posts[-1]["path"].endswith("/power/cold_reboot/"))
@@ -501,15 +696,25 @@ class CLITests(unittest.TestCase):
         self.assertIn("usage", out + err)
 
     def test_subcommand_help_works(self):
-        for argv in (("vm", "--help"), ("bm", "--help"), ("vm", "create", "--help"),
-                     ("bm", "delete", "--help")):
+        for argv in (
+            ("vm", "--help"),
+            ("bm", "--help"),
+            ("vm", "create", "--help"),
+            ("bm", "delete", "--help"),
+        ):
             code, out, err = run_cli(*argv)
             self.assertEqual(code, 0, argv)
             self.assertIn("usage", (out + err).lower(), argv)
         # Flags we promise must actually appear in the help text.
         code, out, err = run_cli("vm", "create", "--help")
-        for flag in ("--cpu-cores", "--ram", "--disk",
-                     "--user-data-url", "--dry-run", "--json-body"):
+        for flag in (
+            "--cpu-cores",
+            "--ram",
+            "--disk",
+            "--user-data-url",
+            "--dry-run",
+            "--json-body",
+        ):
             self.assertIn(flag, out + err, flag)
         code, out, err = run_cli("bm", "delete", "--help")
         for flag in ("--force", "--yes", "--dry-run"):
@@ -519,8 +724,13 @@ class CLITests(unittest.TestCase):
         """`python -m hotaisle` should work straight from the source tree."""
         env = dict(os.environ)
         env["PYTHONPATH"] = ROOT
-        proc = subprocess.run([sys.executable, "-m", "hotaisle", "teams"],
-                              capture_output=True, text=True, cwd="/tmp", env=env)
+        proc = subprocess.run(
+            [sys.executable, "-m", "hotaisle", "teams"],
+            capture_output=True,
+            text=True,
+            cwd="/tmp",
+            env=env,
+        )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("acme-corp", proc.stdout)
 

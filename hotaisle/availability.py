@@ -124,9 +124,16 @@ class AvailabilityDB:
                 "INSERT INTO shapes (kind, label, cpu_cores, ram_bytes, disk_bytes,"
                 " gpu_models, gpu_count, min_reservation_minutes)"
                 " VALUES (?,?,?,?,?,?,?,?)",
-                (key["kind"], key["label"], key["cpu_cores"], key["ram_bytes"],
-                 key["disk_bytes"], key["gpu_models"], key["gpu_count"],
-                 key["min_reservation_minutes"]),
+                (
+                    key["kind"],
+                    key["label"],
+                    key["cpu_cores"],
+                    key["ram_bytes"],
+                    key["disk_bytes"],
+                    key["gpu_models"],
+                    key["gpu_count"],
+                    key["min_reservation_minutes"],
+                ),
             )
             return int(cur.lastrowid)
 
@@ -150,8 +157,7 @@ class AvailabilityDB:
                 conn.execute(
                     "INSERT INTO samples (shape_id, ts, quantity, price_cents)"
                     " VALUES (?,?,?,?)",
-                    (sid, ts, int(avail.quantity or 0),
-                     avail.on_demand_price),
+                    (sid, ts, int(avail.quantity or 0), avail.on_demand_price),
                 )
             seen_ids.append(sid)
         # Any shape recorded for this kind before but absent now -> quantity 0.
@@ -200,8 +206,14 @@ class AvailabilityDB:
                 " WHERE shape_id=? AND ts >= ? ORDER BY ts",
                 (shape_id, since),
             ).fetchall()
-            return [{"ts": float(r["ts"]), "quantity": int(r["quantity"]),
-                     "price_cents": r["price_cents"]} for r in rows]
+            return [
+                {
+                    "ts": float(r["ts"]),
+                    "quantity": int(r["quantity"]),
+                    "price_cents": r["price_cents"],
+                }
+                for r in rows
+            ]
 
     def last_sampled(self) -> Optional[float]:
         with self.lock:
@@ -230,8 +242,9 @@ class ShapeStats:
     max_quantity: int
 
 
-def summarize(db: AvailabilityDB, since: float, kind: Optional[str] = None
-              ) -> List[ShapeStats]:
+def summarize(
+    db: AvailabilityDB, since: float, kind: Optional[str] = None
+) -> List[ShapeStats]:
     """Aggregate observations per shape into per-shape availability stats."""
     out: List[ShapeStats] = []
     for shape in db.shapes(kind=kind):
@@ -240,17 +253,19 @@ def summarize(db: AvailabilityDB, since: float, kind: Optional[str] = None
         if not rows:
             continue
         avails = sum(1 for r in rows if r["quantity"] > 0)
-        out.append(ShapeStats(
-            shape_id=sid,
-            kind=shape["kind"],
-            label=shape["label"],
-            gpu_count=shape["gpu_count"] or 0,
-            avails=avails,
-            observations=len(rows),
-            availability_pct=100.0 * avails / len(rows) if rows else 0.0,
-            first_seen=rows[0]["ts"],
-            last_seen=rows[-1]["ts"],
-            last_quantity=rows[-1]["quantity"],
-            max_quantity=max(r["quantity"] for r in rows),
-        ))
+        out.append(
+            ShapeStats(
+                shape_id=sid,
+                kind=shape["kind"],
+                label=shape["label"],
+                gpu_count=shape["gpu_count"] or 0,
+                avails=avails,
+                observations=len(rows),
+                availability_pct=100.0 * avails / len(rows) if rows else 0.0,
+                first_seen=rows[0]["ts"],
+                last_seen=rows[-1]["ts"],
+                last_quantity=rows[-1]["quantity"],
+                max_quantity=max(r["quantity"] for r in rows),
+            )
+        )
     return out

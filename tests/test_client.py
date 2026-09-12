@@ -29,13 +29,21 @@ from pathlib import Path as _Path  # noqa: E402
 from hotaisle.client import _read_body_limited  # noqa: E402
 
 from hotaisle.auth import (  # noqa: E402
-    mask, normalize_key, resolve_api_key, warn_if_world_readable,
+    mask,
+    normalize_key,
+    resolve_api_key,
+    warn_if_world_readable,
 )
 
 KEY = "abc123-def456-ghi789"
 
-_KEY_VARS = ("HOTAISLE_API_KEY", "HOTAISLE_TOKEN", "HOTAISLE_API_KEY_FILE",
-             "HOTAISLE_API_KEY_COMMAND", "HOTAISLE_KEYRING")
+_KEY_VARS = (
+    "HOTAISLE_API_KEY",
+    "HOTAISLE_TOKEN",
+    "HOTAISLE_API_KEY_FILE",
+    "HOTAISLE_API_KEY_COMMAND",
+    "HOTAISLE_KEYRING",
+)
 
 
 @contextmanager
@@ -55,6 +63,7 @@ def no_env_keys():
             else:
                 os.environ.pop(k, None)
 
+
 VM_AVAILABLE = [
     {
         "Quantity": 4,
@@ -64,8 +73,13 @@ VM_AVAILABLE = [
             "cpu_cores": 8,
             "ram_capacity": 34359738368,
             "disk_capacity": 107374182400,
-            "cpus": {"count": 1, "manufacturer": "AMD", "model": "EPYC 9334",
-                     "cores": 32, "frequency": 2600000000},
+            "cpus": {
+                "count": 1,
+                "manufacturer": "AMD",
+                "model": "EPYC 9334",
+                "cores": 32,
+                "frequency": 2600000000,
+            },
             "gpus": [],
         },
     },
@@ -91,12 +105,32 @@ BM_AVAILABLE = [
             "cpu_cores": 64,
             "ram_capacity": 549755813888,
             "disk_capacity": 4398046511104,
-            "cpus": [{"count": 2, "manufacturer": "Intel", "model": "Xeon 8470Q",
-                      "cores": 32, "frequency": 2600000000}],
-            "memory_modules": [{"count": 16, "manufacturer": "Samsung",
-                                "model": "DDR5-4800", "capacity": 34359738368}],
-            "disks": [{"count": 4, "manufacturer": "Micron", "model": "7450",
-                       "capacity": 1099511627776, "type": "NVMe"}],
+            "cpus": [
+                {
+                    "count": 2,
+                    "manufacturer": "Intel",
+                    "model": "Xeon 8470Q",
+                    "cores": 32,
+                    "frequency": 2600000000,
+                }
+            ],
+            "memory_modules": [
+                {
+                    "count": 16,
+                    "manufacturer": "Samsung",
+                    "model": "DDR5-4800",
+                    "capacity": 34359738368,
+                }
+            ],
+            "disks": [
+                {
+                    "count": 4,
+                    "manufacturer": "Micron",
+                    "model": "7450",
+                    "capacity": 1099511627776,
+                    "type": "NVMe",
+                }
+            ],
             "gpus": [{"count": 8, "manufacturer": "AMD", "model": "MI300X"}],
         },
     }
@@ -109,8 +143,11 @@ VMS = [
         "name": "vm-01",
         "description": "Production web server",
         "ip_address": "192.168.1.200",
-        "ssh_access": {"ip_address": "203.0.113.10", "port": 2222,
-                       "dns_name": "vm01.example.com"},
+        "ssh_access": {
+            "ip_address": "203.0.113.10",
+            "port": 2222,
+            "dns_name": "vm01.example.com",
+        },
         "cpu_cores": 8,
         "ram_capacity": 34359738368,
         "disk_capacity": 107374182400,
@@ -156,9 +193,14 @@ BM_CREATED_NESTED = {
 }
 
 TEAMS = [
-    {"handle": "acme-corp", "name": "Acme Corporation", "roles": ["owner"],
-     "effective_roles": ["owner", "operator"], "maximum_virtual_machines": 10,
-     "maximum_bare_metal_servers": 5}
+    {
+        "handle": "acme-corp",
+        "name": "Acme Corporation",
+        "roles": ["owner"],
+        "effective_roles": ["owner", "operator"],
+        "maximum_virtual_machines": 10,
+        "maximum_bare_metal_servers": 5,
+    }
 ]
 
 
@@ -185,10 +227,13 @@ class FakeAPI(BaseHTTPRequestHandler):
     def _record(self):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else b""
-        entry = {"method": self.command, "path": self.path,
-                 "auth": self.headers.get("Authorization"),
-                 "content_type": self.headers.get("Content-Type"),
-                 "body": body.decode() if body else None}
+        entry = {
+            "method": self.command,
+            "path": self.path,
+            "auth": self.headers.get("Authorization"),
+            "content_type": self.headers.get("Content-Type"),
+            "body": body.decode() if body else None,
+        }
         FakeAPI.calls.append(entry)
         return entry
 
@@ -202,46 +247,83 @@ class FakeAPI(BaseHTTPRequestHandler):
             return self._send(500, raw="boom")
 
         table = {
-            ("GET", "/api/user/"): (200, {"user": {"id": 1, "email": "ops@acme.test",
-                                                    "name": "Ops"}},
-                                     ),
-            ("GET", "/api/user/api_keys/"): (200, [{"prefix": "abc123", "label": "my-key",
-                                                     "user_role": "user",
-                                                     "teams": [{"handle": "acme-corp"}]}]),
+            ("GET", "/api/user/"): (
+                200,
+                {"user": {"id": 1, "email": "ops@acme.test", "name": "Ops"}},
+            ),
+            ("GET", "/api/user/api_keys/"): (
+                200,
+                [
+                    {
+                        "prefix": "abc123",
+                        "label": "my-key",
+                        "user_role": "user",
+                        "teams": [{"handle": "acme-corp"}],
+                    }
+                ],
+            ),
             ("GET", "/api/teams/"): (200, TEAMS),
             ("GET", "/api/teams/acme-corp/balance/"): (200, {"balance": 25000}),
             ("GET", "/api/teams/acme-corp/virtual_machines/"): (200, VMS),
-            ("GET", "/api/teams/acme-corp/virtual_machines/available/"): (200, VM_AVAILABLE),
+            ("GET", "/api/teams/acme-corp/virtual_machines/available/"): (
+                200,
+                VM_AVAILABLE,
+            ),
             ("GET", "/api/teams/acme-corp/bare_metal/"): (200, BMS),
             ("GET", "/api/teams/acme-corp/bare_metal/available/"): (200, BM_AVAILABLE),
-            ("GET", "/api/user/ssh_keys/"): (200, [{"fingerprint": "AA:BB", "type": "ssh-rsa",
-                                                     "public_key": "ssh-rsa AAA", "comment": "me@host"}]),
+            ("GET", "/api/user/ssh_keys/"): (
+                200,
+                [
+                    {
+                        "fingerprint": "AA:BB",
+                        "type": "ssh-rsa",
+                        "public_key": "ssh-rsa AAA",
+                        "comment": "me@host",
+                    }
+                ],
+            ),
         }
         if (method, clean) in table:
             code, payload = table[(method, clean)]
             return self._send(code, payload)
 
-        if clean.startswith("/api/teams/acme-corp/virtual_machines/") and clean.endswith("/state/"):
+        if clean.startswith(
+            "/api/teams/acme-corp/virtual_machines/"
+        ) and clean.endswith("/state/"):
             return self._send(200, {"state": "running", "host": "vm-host-01"})
 
         if method == "POST" and clean == "/api/teams/acme-corp/virtual_machines/":
             sent = json.loads(rec["body"] or "{}")
-            return self._send(200, {
-                "deployment_id": "new-vm-id", "name": "vm-new",
-                "ip_address": "10.0.0.5", "cpu_cores": sent.get("specs", sent).get("cpu_cores"),
-                "ram_capacity": sent.get("specs", sent).get("ram_capacity"),
-                "disk_capacity": sent.get("specs", sent).get("disk_capacity"),
-            })
+            return self._send(
+                200,
+                {
+                    "deployment_id": "new-vm-id",
+                    "name": "vm-new",
+                    "ip_address": "10.0.0.5",
+                    "cpu_cores": sent.get("specs", sent).get("cpu_cores"),
+                    "ram_capacity": sent.get("specs", sent).get("ram_capacity"),
+                    "disk_capacity": sent.get("specs", sent).get("disk_capacity"),
+                },
+            )
         if method == "POST" and clean == "/api/teams/acme-corp/bare_metal/":
-            return self._send(201, {
-                "deployment_id": "new-bm-id", "name": "server-new",
-                "manufacturer": "Dell", "model": "PowerEdge XE9680",
-                "ip_address": "10.0.0.9",
-                "specs": json.loads(rec["body"] or "{}").get("specs", {}),
-            })
-        if method == "DELETE" and clean.startswith("/api/teams/acme-corp/virtual_machines/"):
+            return self._send(
+                201,
+                {
+                    "deployment_id": "new-bm-id",
+                    "name": "server-new",
+                    "manufacturer": "Dell",
+                    "model": "PowerEdge XE9680",
+                    "ip_address": "10.0.0.9",
+                    "specs": json.loads(rec["body"] or "{}").get("specs", {}),
+                },
+            )
+        if method == "DELETE" and clean.startswith(
+            "/api/teams/acme-corp/virtual_machines/"
+        ):
             return self._send(204)
-        if method == "PATCH" and clean.startswith("/api/teams/acme-corp/virtual_machines/"):
+        if method == "PATCH" and clean.startswith(
+            "/api/teams/acme-corp/virtual_machines/"
+        ):
             return self._send(204)
         if method == "DELETE" and clean.startswith("/api/teams/acme-corp/bare_metal/"):
             return self._send(204)
@@ -250,17 +332,23 @@ class FakeAPI(BaseHTTPRequestHandler):
         if method == "GET" and "/power/" in clean:
             return self._send(200, {"state": "On"})
         if clean == "/api/teams/locked/virtual_machines/":
-            return self._send(403, raw="Forbidden: Permission denied", ctype="text/plain")
+            return self._send(
+                403, raw="Forbidden: Permission denied", ctype="text/plain"
+            )
         if clean == "/api/teams/broke/bare_metal/":
-            return self._send(400, raw="Bad Request: minimum usage not met",
-                              ctype="text/plain")
+            return self._send(
+                400, raw="Bad Request: minimum usage not met", ctype="text/plain"
+            )
         if clean.endswith("/insufficient/"):
             return self._send(402, raw="Payment required", ctype="text/plain")
         if clean == "/api/bad-key/":
             return self._send(401, raw="Unauthorized", ctype="text/plain")
         if clean == "/api/no-ssh-key/":
-            return self._send(428, raw="Team has no accepted member with an SSH key",
-                              ctype="text/plain")
+            return self._send(
+                428,
+                raw="Team has no accepted member with an SSH key",
+                ctype="text/plain",
+            )
         if clean.startswith("/api/teams/missing/"):
             return self._send(404, raw="Not Found", ctype="text/plain")
         return self._send(404, raw="Not Found", ctype="text/plain")
@@ -286,8 +374,9 @@ class HotAisleTestCase(unittest.TestCase):
         FakeAPI.fail_times = 0
         os.environ["HOTAISLE_API_KEY"] = KEY
         os.environ.pop("HOTAISLE_TEAM", None)
-        self.client = Client(base_url=self.base, team="acme-corp", max_retries=1,
-                             timeout=10)
+        self.client = Client(
+            base_url=self.base, team="acme-corp", max_retries=1, timeout=10
+        )
 
     # ------------------------------------------------------------- auth
 
@@ -313,8 +402,12 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertTrue(m.startswith(KEY[:4]))
 
     def test_missing_key_raises_with_hint(self):
-        for var in ("HOTAISLE_API_KEY", "HOTAISLE_TOKEN", "HOTAISLE_API_KEY_FILE",
-                    "HOTAISLE_API_KEY_COMMAND"):
+        for var in (
+            "HOTAISLE_API_KEY",
+            "HOTAISLE_TOKEN",
+            "HOTAISLE_API_KEY_FILE",
+            "HOTAISLE_API_KEY_COMMAND",
+        ):
             os.environ.pop(var, None)
         with self.assertRaises(errors.ConfigurationError) as ctx:
             Client(base_url=self.base)
@@ -323,6 +416,7 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_key_file_source(self):
         import tempfile
+
         with tempfile.NamedTemporaryFile("w", suffix=".key", delete=False) as fh:
             fh.write(KEY + "\n")
             path = fh.name
@@ -377,13 +471,19 @@ class HotAisleTestCase(unittest.TestCase):
     def test_config_key_command_then_key_file_then_inline(self):
         """Within the config file: key_command > key_file > api_key."""
         import tempfile
+
         with tempfile.NamedTemporaryFile("w", suffix=".key", delete=False) as fh:
             fh.write("file-key-value\n")
             path = fh.name
         try:
             with no_env_keys():
-                c = resolve_api_key(config={"key_command": "printf cmd-key-value",
-                                            "key_file": path, "api_key": "inline"})
+                c = resolve_api_key(
+                    config={
+                        "key_command": "printf cmd-key-value",
+                        "key_file": path,
+                        "api_key": "inline",
+                    }
+                )
                 self.assertEqual(c.api_key, "cmd-key-value")
                 self.assertIn("config", c.source)
                 c = resolve_api_key(config={"key_file": path, "api_key": "inline"})
@@ -399,8 +499,9 @@ class HotAisleTestCase(unittest.TestCase):
         os.environ.pop("HOTAISLE_API_KEY")
         os.environ["HOTAISLE_API_KEY_COMMAND"] = "printf env-wins"
         try:
-            c = resolve_api_key(config={"key_file": "/nope/missing.key",
-                                        "api_key": "inline"})
+            c = resolve_api_key(
+                config={"key_file": "/nope/missing.key", "api_key": "inline"}
+            )
             self.assertEqual(c.api_key, "env-wins")
         finally:
             os.environ.pop("HOTAISLE_API_KEY_COMMAND")
@@ -408,6 +509,7 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_empty_key_file_is_an_error(self):
         import tempfile
+
         with tempfile.NamedTemporaryFile("w", suffix=".key", delete=False) as fh:
             path = fh.name
         try:
@@ -419,6 +521,7 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_config_file_is_world_readable_warning(self):
         import tempfile
+
         with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as fh:
             fh.write('api_key = "k"\n')
             path = fh.name
@@ -445,15 +548,24 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(vm.specs.cpu_cores, 8)
         self.assertEqual(vm.specs.ram_capacity, 34359738368)
         self.assertAlmostEqual(vm.specs.ram_gib, 32.0)
-        self.assertEqual(vm.ssh_access.ssh_command, "ssh -p 2222 hotaisle@vm01.example.com")
+        self.assertEqual(
+            vm.ssh_access.ssh_command, "ssh -p 2222 hotaisle@vm01.example.com"
+        )
         self.assertIn("vm-01", vm.name)
 
     def test_ssh_user_from_config_is_used(self):
         """A config-provided ssh_user overrides the default for ssh_command/ssh_target."""
-        cfg = Client(base_url=self.base, team="acme-corp", max_retries=1, timeout=10,
-                   config={"ssh_user": "deployer"})
+        cfg = Client(
+            base_url=self.base,
+            team="acme-corp",
+            max_retries=1,
+            timeout=10,
+            config={"ssh_user": "deployer"},
+        )
         vm = cfg.list_virtual_machines()[0]
-        self.assertEqual(vm.ssh_access.ssh_command, "ssh -p 2222 deployer@vm01.example.com")
+        self.assertEqual(
+            vm.ssh_access.ssh_command, "ssh -p 2222 deployer@vm01.example.com"
+        )
         self.assertEqual(vm.ssh_access.ssh_target, "deployer@vm01.example.com:2222")
 
     def test_list_bm_flattened_specs_and_hardware(self):
@@ -492,10 +604,12 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(avail[0].specs.gpu_count, 8)
 
     def test_unknown_fields_are_tolerated(self):
-        models.VirtualMachine.from_dict({"name": "x", "brand_new_field": {"a": 1},
-                                         "deployment_id": "d"})
-        models.Specs.from_dict({"cpu_cores": 2, "ram_capacity": 1, "disk_capacity": 1,
-                                "quantum_cores": 4})
+        models.VirtualMachine.from_dict(
+            {"name": "x", "brand_new_field": {"a": 1}, "deployment_id": "d"}
+        )
+        models.Specs.from_dict(
+            {"cpu_cores": 2, "ram_capacity": 1, "disk_capacity": 1, "quantum_cores": 4}
+        )
 
     def test_team_defaults_from_env(self):
         os.environ["HOTAISLE_TEAM"] = "acme-corp"
@@ -514,9 +628,12 @@ class HotAisleTestCase(unittest.TestCase):
     # ----------------------------------------------------------- creation
 
     def test_create_vm_body_shape(self):
-        vm = self.client.create_virtual_machine(cpu_cores=8, ram_capacity=34359738368,
-                                               disk_capacity=107374182400,
-                                               description="worker")
+        vm = self.client.create_virtual_machine(
+            cpu_cores=8,
+            ram_capacity=34359738368,
+            disk_capacity=107374182400,
+            description="worker",
+        )
         post = [c for c in FakeAPI.calls if c["method"] == "POST"][-1]
         body = json.loads(post["body"])
         # VM bodies carry specs flattened at top level, not nested.
@@ -527,23 +644,36 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(vm.deployment_id, "new-vm-id")
 
     def test_create_vm_with_description_patches_after_create(self):
-        vm = self.client.create_virtual_machine(cpu_cores=8, ram_capacity=34359738368,
-                                               disk_capacity=107374182400,
-                                               description="worker")
+        vm = self.client.create_virtual_machine(
+            cpu_cores=8,
+            ram_capacity=34359738368,
+            disk_capacity=107374182400,
+            description="worker",
+        )
         self.assertEqual(vm.description, "worker")
         self.assertEqual(FakeAPI.calls[-1]["method"], "PATCH")
-        self.assertTrue(FakeAPI.calls[-1]["path"].endswith("/virtual_machines/new-vm-id/"))
-        self.assertEqual(json.loads(FakeAPI.calls[-1]["body"]), {"description": "worker"})
+        self.assertTrue(
+            FakeAPI.calls[-1]["path"].endswith("/virtual_machines/new-vm-id/")
+        )
+        self.assertEqual(
+            json.loads(FakeAPI.calls[-1]["body"]), {"description": "worker"}
+        )
 
     def test_update_virtual_machine_patches_description(self):
         self.client.update_virtual_machine("vm-01", description="renamed")
         self.assertEqual(FakeAPI.calls[-1]["method"], "PATCH")
         self.assertTrue(FakeAPI.calls[-1]["path"].endswith("/virtual_machines/vm-01/"))
-        self.assertEqual(json.loads(FakeAPI.calls[-1]["body"]), {"description": "renamed"})
+        self.assertEqual(
+            json.loads(FakeAPI.calls[-1]["body"]), {"description": "renamed"}
+        )
 
     def test_create_vm_sends_user_data_url(self):
-        self.client.create_virtual_machine(cpu_cores=8, ram_capacity=1, disk_capacity=1,
-                                          user_data_url="https://x.test/ud.yaml")
+        self.client.create_virtual_machine(
+            cpu_cores=8,
+            ram_capacity=1,
+            disk_capacity=1,
+            user_data_url="https://x.test/ud.yaml",
+        )
         body = json.loads(FakeAPI.calls[-1]["body"])
         self.assertEqual(body["user_data_url"], "https://x.test/ud.yaml")
 
@@ -552,9 +682,12 @@ class HotAisleTestCase(unittest.TestCase):
             self.client.create_virtual_machine(cpu_cores=8)
 
     def test_create_bm_wraps_specs_and_returns_201(self):
-        s = self.client.create_bare_metal(cpu_cores=64, ram_capacity=549755813888,
-                                         disk_capacity=4398046511104,
-                                         description="gpu box")
+        s = self.client.create_bare_metal(
+            cpu_cores=64,
+            ram_capacity=549755813888,
+            disk_capacity=4398046511104,
+            description="gpu box",
+        )
         body = json.loads(FakeAPI.calls[-1]["body"])
         self.assertEqual(body["specs"]["cpu_cores"], 64)
         self.assertEqual(body["description"], "gpu box")
@@ -562,8 +695,9 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(s.hardware, "Dell PowerEdge XE9680")
 
     def test_force_query_encoding(self):
-        self.client.create_virtual_machine(cpu_cores=1, ram_capacity=1, disk_capacity=1,
-                                          force=True)
+        self.client.create_virtual_machine(
+            cpu_cores=1, ram_capacity=1, disk_capacity=1, force=True
+        )
         self.assertIn("force=true", FakeAPI.calls[-1]["path"])
         FakeAPI.calls.clear()
         self.client.create_virtual_machine(cpu_cores=1, ram_capacity=1, disk_capacity=1)
@@ -579,6 +713,7 @@ class HotAisleTestCase(unittest.TestCase):
     @staticmethod
     def client_specs_selector(avail):
         from hotaisle.client import specs_to_selector
+
         return specs_to_selector(avail)
 
     # ----------------------------------------------------------- deletion
@@ -587,9 +722,11 @@ class HotAisleTestCase(unittest.TestCase):
         self.client.delete_virtual_machine("195116dc-32ed-49e5-a738-5e2ad0cdd141")
         rec = FakeAPI.calls[-1]
         self.assertEqual(rec["method"], "DELETE")
-        self.assertEqual(rec["path"],
-                         "/api/teams/acme-corp/virtual_machines/"
-                         "195116dc-32ed-49e5-a738-5e2ad0cdd141/")
+        self.assertEqual(
+            rec["path"],
+            "/api/teams/acme-corp/virtual_machines/"
+            "195116dc-32ed-49e5-a738-5e2ad0cdd141/",
+        )
         self.assertIsNone(rec["body"])
 
     def test_delete_bm_204_is_success(self):
@@ -670,6 +807,7 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_body_read_multi_chunk_success(self):
         """A body that returns data in chunks still completes under the deadline."""
+
         class ChunkedResponse:
             def __init__(self):
                 self._chunks = iter([b"a" * 70000, b"b" * 1000])
@@ -702,8 +840,11 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_user_model_unwraps_user_key(self):
         user = models.User.from_dict(
-            {"user": {"id": 1, "email": "ops@acme.test", "name": "Ops"},
-             "teams": [{"handle": "acme-corp"}]})
+            {
+                "user": {"id": 1, "email": "ops@acme.test", "name": "Ops"},
+                "teams": [{"handle": "acme-corp"}],
+            }
+        )
         self.assertEqual(user.id, 1)
         self.assertEqual(user.email, "ops@acme.test")
         self.assertEqual(user.name, "Ops")
@@ -711,7 +852,8 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_specs_accepts_single_cpu_dict(self):
         specs = models.Specs.from_dict(
-            {"cpus": {"count": 1, "manufacturer": "AMD", "model": "EPYC", "cores": 32}})
+            {"cpus": {"count": 1, "manufacturer": "AMD", "model": "EPYC", "cores": 32}}
+        )
         self.assertEqual(len(specs.cpus), 1)
         self.assertEqual(specs.cpus[0].model, "EPYC")
         self.assertEqual(specs.cpus[0].cores, 32)
@@ -721,7 +863,9 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(keys[0]["label"], "my-key")
 
     def test_vm_state(self):
-        st = self.client.get_virtual_machine_state("195116dc-32ed-49e5-a738-5e2ad0cdd141")
+        st = self.client.get_virtual_machine_state(
+            "195116dc-32ed-49e5-a738-5e2ad0cdd141"
+        )
         self.assertEqual(st.state, "running")
         self.assertEqual(st.host, "vm-host-01")
 
@@ -731,16 +875,21 @@ class HotAisleTestCase(unittest.TestCase):
         self.assertEqual(out["state"], "On")
 
     def test_base_url_normalisation(self):
-        for raw in ["https://admin.hotaisle.app", "https://admin.hotaisle.app/",
-                    "https://admin.hotaisle.app/api", "https://admin.hotaisle.app/api/",
-                    "https://admin.hotaisle.app/api/docs", "admin.hotaisle.app/api"]:
+        for raw in [
+            "https://admin.hotaisle.app",
+            "https://admin.hotaisle.app/",
+            "https://admin.hotaisle.app/api",
+            "https://admin.hotaisle.app/api/",
+            "https://admin.hotaisle.app/api/docs",
+            "admin.hotaisle.app/api",
+        ]:
             c = Client(api_key=KEY, base_url=raw)
             self.assertEqual(c.base_url, "https://admin.hotaisle.app/api", raw)
 
     def test_parse_size(self):
-        self.assertEqual(models.parse_size("16G"), 16 * 1024 ** 3)
-        self.assertEqual(models.parse_size("512GiB"), 512 * 1024 ** 3)
-        self.assertEqual(models.parse_size("1.5T"), int(1.5 * 1024 ** 4))
+        self.assertEqual(models.parse_size("16G"), 16 * 1024**3)
+        self.assertEqual(models.parse_size("512GiB"), 512 * 1024**3)
+        self.assertEqual(models.parse_size("1.5T"), int(1.5 * 1024**4))
         self.assertEqual(models.parse_size("34359738368"), 34359738368)
         with self.assertRaises(ValueError):
             models.parse_size("banana")
@@ -755,6 +904,7 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_read_body_limited_returns_empty_for_no_data(self):
         """An empty body (204-style) should return b'' without error."""
+
         class EmptyResponse:
             raw = self
             fp = None

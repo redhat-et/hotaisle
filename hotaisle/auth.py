@@ -61,7 +61,7 @@ def normalize_key(raw: str) -> str:
     key = (raw or "").strip().strip('"').strip("'")
     for prefix in ("Token ", "token ", "Bearer ", "bearer "):
         if key.startswith(prefix):
-            return key[len(prefix):].strip()
+            return key[len(prefix) :].strip()
     return key
 
 
@@ -113,8 +113,10 @@ def warn_if_world_readable(path: Path) -> Optional[str]:
     except OSError:
         return None
     if mode & 0o077:
-        return ("config file %s is readable by group/others (mode %o) - "
-                "run: chmod 600 %s" % (path, mode, path))
+        return (
+            "config file %s is readable by group/others (mode %o) - "
+            "run: chmod 600 %s" % (path, mode, path)
+        )
     return None
 
 
@@ -148,7 +150,10 @@ def _run_key_command(command: str) -> str:
     try:
         proc = subprocess.run(
             shlex.split(command) if os.name != "nt" else command,
-            capture_output=True, text=True, timeout=30, shell=os.name == "nt",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            shell=os.name == "nt",
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ConfigurationError(
@@ -191,8 +196,9 @@ def resolve_api_key(
 
     env_file = os.environ.get(ENV_KEY_FILE)
     if env_file:
-        return Credential(_read_key_file(env_file, ENV_KEY_FILE),
-                          "file from %s" % ENV_KEY_FILE)
+        return Credential(
+            _read_key_file(env_file, ENV_KEY_FILE), "file from %s" % ENV_KEY_FILE
+        )
 
     env_command = os.environ.get(ENV_KEY_COMMAND)
     if env_command:
@@ -204,18 +210,21 @@ def resolve_api_key(
     if cfg.get("key_command"):
         return Credential(_run_key_command(cfg["key_command"]), "key_command in config")
     if cfg.get("key_file"):
-        return Credential(_read_key_file(cfg["key_file"], "key_file"),
-                          "key_file in config")
+        return Credential(
+            _read_key_file(cfg["key_file"], "key_file"), "key_file in config"
+        )
     if cfg.get("api_key"):
-        return Credential(normalize_key(cfg["api_key"]),
-                          "config file %s" % default_config_path())
+        return Credential(
+            normalize_key(cfg["api_key"]), "config file %s" % default_config_path()
+        )
 
     want_keyring = allow_keyring
     if want_keyring is None:
-        want_keyring = (
-            os.environ.get(ENV_KEYRING, "").lower() in ("1", "true", "yes")
-            or bool(cfg.get("use_keyring"))
-        )
+        want_keyring = os.environ.get(ENV_KEYRING, "").lower() in (
+            "1",
+            "true",
+            "yes",
+        ) or bool(cfg.get("use_keyring"))
     if want_keyring:
         keyed = _from_keyring()
         if keyed:

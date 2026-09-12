@@ -13,21 +13,51 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hotaisle.availability import AvailabilityDB, ShapeStats, default_db_path, summarize  # noqa: E402
+from hotaisle.availability import (
+    AvailabilityDB,
+    ShapeStats,
+    default_db_path,
+    summarize,
+)  # noqa: E402
 from hotaisle.models import AvailableType  # noqa: E402
 
 
-def _avail(label, quantity, gpu_count=0, cpu=2, ram=2 ** 30, disk=10 * 2 ** 30,
-           price=100, min_res=30, gpu_model=None):
-    specs = {"cpu_cores": cpu, "ram_capacity": ram, "disk_capacity": disk,
-             "gpus": [{"count": gpu_count, "manufacturer": "AMD",
-                       "model": gpu_model or ("MI300X" if gpu_count else "CPU")}]
-             if gpu_count else []}
-    return AvailableType.from_dict({
-        "Quantity": quantity, "OnDemandPrice": price,
-        "MinimumReservationMinutes": min_res, "Specs": specs,
-        "Name": "test-%s" % label,
-    })
+def _avail(
+    label,
+    quantity,
+    gpu_count=0,
+    cpu=2,
+    ram=2**30,
+    disk=10 * 2**30,
+    price=100,
+    min_res=30,
+    gpu_model=None,
+):
+    specs = {
+        "cpu_cores": cpu,
+        "ram_capacity": ram,
+        "disk_capacity": disk,
+        "gpus": (
+            [
+                {
+                    "count": gpu_count,
+                    "manufacturer": "AMD",
+                    "model": gpu_model or ("MI300X" if gpu_count else "CPU"),
+                }
+            ]
+            if gpu_count
+            else []
+        ),
+    }
+    return AvailableType.from_dict(
+        {
+            "Quantity": quantity,
+            "OnDemandPrice": price,
+            "MinimumReservationMinutes": min_res,
+            "Specs": specs,
+            "Name": "test-%s" % label,
+        }
+    )
 
 
 class AvailabilityTestCase(unittest.TestCase):
@@ -39,6 +69,7 @@ class AvailabilityTestCase(unittest.TestCase):
     def tearDown(self):
         self.db.close()
         import shutil
+
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_schema_init_creates_tables(self):
@@ -51,14 +82,18 @@ class AvailabilityTestCase(unittest.TestCase):
     def test_creates_parent_directory_automatically(self):
         # A non-existent nested path must be created, not fail.
         import tempfile
+
         nested = os.path.join(tempfile.mkdtemp(), "does", "not", "exist", "avail.db")
         db = AvailabilityDB(nested)
         self.assertTrue(os.path.isdir(os.path.dirname(nested)))
         self.assertTrue(os.path.isfile(nested))
         db.close()
         import shutil
-        shutil.rmtree(os.path.dirname(os.path.dirname(os.path.dirname(nested))),
-                     ignore_errors=True)
+
+        shutil.rmtree(
+            os.path.dirname(os.path.dirname(os.path.dirname(nested))),
+            ignore_errors=True,
+        )
 
     def test_record_creates_shape_and_sample(self):
         n = self.db.record("vm", [_avail("a", 2)], ts=1000.0)
@@ -86,8 +121,9 @@ class AvailabilityTestCase(unittest.TestCase):
         shapes = self.db.shapes()
         self.assertEqual(len(shapes), 1)
         rows = self.db.series(int(shapes[0]["id"]), since=0)
-        self.assertEqual([(r["ts"], r["quantity"]) for r in rows],
-                         [(1000.0, 2), (1005.0, 0)])
+        self.assertEqual(
+            [(r["ts"], r["quantity"]) for r in rows], [(1000.0, 2), (1005.0, 0)]
+        )
 
     def test_vm_and_bm_are_separate_kinds(self):
         self.db.record("vm", [_avail("same", 1)], ts=1000.0)
@@ -107,10 +143,10 @@ class AvailabilityTestCase(unittest.TestCase):
 
     def test_summary_computes_pct_and_rare(self):
         # Two sweeps. In both, "common" is present; "rare" only in the first.
-        self.db.record("vm", [_avail("common", 3), _avail("rare", 1)],
-                      ts=time.time() - 600)
-        self.db.record("vm", [_avail("common", 2)],
-                      ts=time.time())
+        self.db.record(
+            "vm", [_avail("common", 3), _avail("rare", 1)], ts=time.time() - 600
+        )
+        self.db.record("vm", [_avail("common", 2)], ts=time.time())
         stats = summarize(self.db, since=time.time() - 3600)
         by_label = {s.label: s for s in stats}
         self.assertIn("test-common", by_label)

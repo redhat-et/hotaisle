@@ -64,7 +64,9 @@ _STATUS_MAP = {
 }
 
 
-def error_for_status(status_code: int, body: str, method: str = "", path: str = "") -> APIError:
+def error_for_status(
+    status_code: int, body: str, method: str = "", path: str = ""
+) -> APIError:
     """Build the most specific APIError subclass for an HTTP status code."""
     cls = _STATUS_MAP.get(status_code, APIError)
     snippet = (body or "").strip()

@@ -31,3 +31,6 @@ packages = ["hotaisle"]
 
 [tool.setuptools.package-data]
 hotaisle = ["py.typed"]
+
+[tool.black]
+target-version = ["py39"]

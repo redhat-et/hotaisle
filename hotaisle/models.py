@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-GIB = 1024 ** 3
-MIB = 1024 ** 2
+GIB = 1024**3
+MIB = 1024**2
 
 
 def pick(data: Dict[str, Any], *names: str, default: Any = None) -> Any:
@@ -53,7 +53,11 @@ def human_bytes(n: Optional[int]) -> str:
     n = float(n)
     for unit in ("B", "KiB", "MiB", "GiB", "TiB", "PiB"):
         if abs(n) < 1024 or unit == "PiB":
-            text = "%.0f %s" % (n, unit) if unit == "B" or n >= 10 else "%.1f %s" % (n, unit)
+            text = (
+                "%.0f %s" % (n, unit)
+                if unit == "B" or n >= 10
+                else "%.1f %s" % (n, unit)
+            )
             return text.rstrip(".0").rstrip()
         n /= 1024.0
     return "%s B" % n
@@ -82,9 +86,14 @@ class _Model:
 
 
 class Component(_Model):
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, count: Any = None,
-                 manufacturer: Optional[str] = None, model: Optional[str] = None,
-                 **extra: Any):
+    def __init__(
+        self,
+        raw: Optional[Dict[str, Any]] = None,
+        count: Any = None,
+        manufacturer: Optional[str] = None,
+        model: Optional[str] = None,
+        **extra: Any,
+    ):
         self.raw = raw or {}
         self.count = as_bytes(pick(self.raw, "count", default=count))
         self.manufacturer = pick(self.raw, "manufacturer", default=manufacturer)
@@ -125,19 +134,46 @@ class GPU(Component):
 
 
 class Specs(_Model):
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, cpu_cores: Any = None,
-                 ram_capacity: Any = None, disk_capacity: Any = None, **extra: Any):
+    def __init__(
+        self,
+        raw: Optional[Dict[str, Any]] = None,
+        cpu_cores: Any = None,
+        ram_capacity: Any = None,
+        disk_capacity: Any = None,
+        **extra: Any,
+    ):
         self.raw = raw or {}
-        self.cpu_cores = as_bytes(pick(self.raw, "cpu_cores", "CPUCores", "cpuCores",
-                                       default=cpu_cores))
-        self.ram_capacity = as_bytes(pick(self.raw, "ram_capacity", "RAMCapacity",
-                                          "ramCapacity", default=ram_capacity))
-        self.disk_capacity = as_bytes(pick(self.raw, "disk_capacity", "DiskCapacity",
-                                           "diskCapacity", default=disk_capacity))
-        self.cpus = [Component.from_dict(c) for c in _as_list(pick(self.raw, "cpus", "CPUs"))]
-        self.memory_modules = [Component.from_dict(m) for m in
-                               _as_list(pick(self.raw, "memory_modules", "MemoryModules"))]
-        self.disks = [Component.from_dict(d) for d in _as_list(pick(self.raw, "disks", "Disks"))]
+        self.cpu_cores = as_bytes(
+            pick(self.raw, "cpu_cores", "CPUCores", "cpuCores", default=cpu_cores)
+        )
+        self.ram_capacity = as_bytes(
+            pick(
+                self.raw,
+                "ram_capacity",
+                "RAMCapacity",
+                "ramCapacity",
+                default=ram_capacity,
+            )
+        )
+        self.disk_capacity = as_bytes(
+            pick(
+                self.raw,
+                "disk_capacity",
+                "DiskCapacity",
+                "diskCapacity",
+                default=disk_capacity,
+            )
+        )
+        self.cpus = [
+            Component.from_dict(c) for c in _as_list(pick(self.raw, "cpus", "CPUs"))
+        ]
+        self.memory_modules = [
+            Component.from_dict(m)
+            for m in _as_list(pick(self.raw, "memory_modules", "MemoryModules"))
+        ]
+        self.disks = [
+            Component.from_dict(d) for d in _as_list(pick(self.raw, "disks", "Disks"))
+        ]
         self.gpus = [GPU.from_dict(g) for g in _as_list(pick(self.raw, "gpus", "GPUs"))]
 
     @classmethod
@@ -183,7 +219,12 @@ DEFAULT_SSH_USER = "hotaisle"
 
 
 class ExternalService(_Model):
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, ssh_user: Optional[str] = None, **extra: Any):
+    def __init__(
+        self,
+        raw: Optional[Dict[str, Any]] = None,
+        ssh_user: Optional[str] = None,
+        **extra: Any,
+    ):
         self.raw = raw or {}
         self.ip_address = pick(self.raw, "ip_address", "IPAddress")
         self.port = as_bytes(pick(self.raw, "port", "Port"))
@@ -191,7 +232,9 @@ class ExternalService(_Model):
         self.ssh_user = ssh_user or DEFAULT_SSH_USER
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], ssh_user: Optional[str] = None) -> "ExternalService":
+    def from_dict(
+        cls, data: Dict[str, Any], ssh_user: Optional[str] = None
+    ) -> "ExternalService":
         return cls(raw=data, ssh_user=ssh_user)
 
     @property
@@ -215,7 +258,12 @@ class ExternalService(_Model):
 class VirtualMachine(_Model):
     """A VM assigned to a team (VirtualMachineDetails = VirtualMachine + specs)."""
 
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, ssh_user: Optional[str] = None, **extra: Any):
+    def __init__(
+        self,
+        raw: Optional[Dict[str, Any]] = None,
+        ssh_user: Optional[str] = None,
+        **extra: Any,
+    ):
         self.raw = raw or {}
         self.deployment_id = pick(self.raw, "deployment_id", "DeploymentID")
         self.name = pick(self.raw, "name", "Name")
@@ -223,12 +271,16 @@ class VirtualMachine(_Model):
         self.ip_address = pick(self.raw, "ip_address", "IPAddress")
         self.ssh_user = ssh_user or DEFAULT_SSH_USER
         ssh = pick(self.raw, "ssh_access", "SSHAccess")
-        self.ssh_access = ExternalService.from_dict(ssh, ssh_user=self.ssh_user) if ssh else None
+        self.ssh_access = (
+            ExternalService.from_dict(ssh, ssh_user=self.ssh_user) if ssh else None
+        )
         # Specs arrive flattened into the same object for VMs.
         self.specs = Specs(raw=self.raw)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], ssh_user: Optional[str] = None) -> "VirtualMachine":
+    def from_dict(
+        cls, data: Dict[str, Any], ssh_user: Optional[str] = None
+    ) -> "VirtualMachine":
         return cls(raw=data, ssh_user=ssh_user)
 
     @property
@@ -241,7 +293,9 @@ class VirtualMachine(_Model):
     def ssh_command(self) -> Optional[str]:
         if self.ssh_access:
             return self.ssh_access.ssh_command
-        return "ssh %s@%s" % (self.ssh_user, self.ip_address) if self.ip_address else None
+        return (
+            "ssh %s@%s" % (self.ssh_user, self.ip_address) if self.ip_address else None
+        )
 
     @property
     def id_or_name(self) -> str:
@@ -251,7 +305,12 @@ class VirtualMachine(_Model):
 class BareMetalServer(_Model):
     """A reserved bare metal server (BareMetalServerDetails = server + specs)."""
 
-    def __init__(self, raw: Optional[Dict[str, Any]] = None, ssh_user: Optional[str] = None, **extra: Any):
+    def __init__(
+        self,
+        raw: Optional[Dict[str, Any]] = None,
+        ssh_user: Optional[str] = None,
+        **extra: Any,
+    ):
         self.raw = raw or {}
         self.deployment_id = pick(self.raw, "deployment_id", "DeploymentID")
         self.name = pick(self.raw, "name", "Name")
@@ -259,17 +318,24 @@ class BareMetalServer(_Model):
         self.ip_address = pick(self.raw, "ip_address", "IPAddress")
         self.manufacturer = pick(self.raw, "manufacturer", "Manufacturer")
         self.model = pick(self.raw, "model", "Model")
-        self.support_access_enabled = pick(self.raw, "support_access_enabled",
-                                          "SupportAccessEnabled", default=False)
+        self.support_access_enabled = pick(
+            self.raw, "support_access_enabled", "SupportAccessEnabled", default=False
+        )
         self.ssh_user = ssh_user or DEFAULT_SSH_USER
         ssh = pick(self.raw, "ssh_access", "SSHAccess")
-        self.ssh_access = ExternalService.from_dict(ssh, ssh_user=self.ssh_user) if ssh else None
+        self.ssh_access = (
+            ExternalService.from_dict(ssh, ssh_user=self.ssh_user) if ssh else None
+        )
         nested = pick(self.raw, "specs", "Specs")
-        self.specs = Specs.from_dict(nested) if isinstance(nested, dict) else Specs(raw=self.raw)
+        self.specs = (
+            Specs.from_dict(nested) if isinstance(nested, dict) else Specs(raw=self.raw)
+        )
         self.os_status = pick(self.raw, "os_status", "OSStatus", "OsStatus")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], ssh_user: Optional[str] = None) -> "BareMetalServer":
+    def from_dict(
+        cls, data: Dict[str, Any], ssh_user: Optional[str] = None
+    ) -> "BareMetalServer":
         return cls(raw=data, ssh_user=ssh_user)
 
     @property
@@ -281,7 +347,9 @@ class BareMetalServer(_Model):
     def ssh_command(self) -> Optional[str]:
         if self.ssh_access:
             return self.ssh_access.ssh_command
-        return "ssh %s@%s" % (self.ssh_user, self.ip_address) if self.ip_address else None
+        return (
+            "ssh %s@%s" % (self.ssh_user, self.ip_address) if self.ip_address else None
+        )
 
     @property
     def id_or_name(self) -> str:
@@ -295,11 +363,16 @@ class AvailableType(_Model):
         self.raw = raw or {}
         self.quantity = as_bytes(pick(self.raw, "Quantity", "quantity"))
         self.minimum_reservation_minutes = as_bytes(
-            pick(self.raw, "MinimumReservationMinutes", "minimum_reservation_minutes"))
-        self.on_demand_price = as_bytes(pick(self.raw, "OnDemandPrice", "on_demand_price"))
+            pick(self.raw, "MinimumReservationMinutes", "minimum_reservation_minutes")
+        )
+        self.on_demand_price = as_bytes(
+            pick(self.raw, "OnDemandPrice", "on_demand_price")
+        )
         specs = pick(self.raw, "Specs", "specs")
         # Some responses may already be flattened; fall back to the row itself.
-        self.specs = Specs.from_dict(specs) if isinstance(specs, dict) else Specs(raw=self.raw)
+        self.specs = (
+            Specs.from_dict(specs) if isinstance(specs, dict) else Specs(raw=self.raw)
+        )
         self.label_override = pick(self.raw, "name", "Name", "type", "Type", "id", "ID")
 
     @classmethod
@@ -308,8 +381,11 @@ class AvailableType(_Model):
 
     @property
     def price_per_hour(self) -> str:
-        return "%s/hr" % cents_to_usd(self.on_demand_price) if self.on_demand_price is not None \
+        return (
+            "%s/hr" % cents_to_usd(self.on_demand_price)
+            if self.on_demand_price is not None
             else "-"
+        )
 
     @property
     def minimum_reservation(self) -> str:
@@ -334,10 +410,12 @@ class Team(_Model):
         self.description = pick(self.raw, "description", "Description")
         self.roles = pick(self.raw, "roles", "Roles") or []
         self.effective_roles = pick(self.raw, "effective_roles", "EffectiveRoles") or []
-        self.maximum_virtual_machines = as_bytes(pick(self.raw, "maximum_virtual_machines",
-                                                     "MaximumVirtualMachines"))
-        self.maximum_bare_metal_servers = as_bytes(pick(self.raw, "maximum_bare_metal_servers",
-                                                       "MaximumBareMetalServers"))
+        self.maximum_virtual_machines = as_bytes(
+            pick(self.raw, "maximum_virtual_machines", "MaximumVirtualMachines")
+        )
+        self.maximum_bare_metal_servers = as_bytes(
+            pick(self.raw, "maximum_bare_metal_servers", "MaximumBareMetalServers")
+        )
         self.invitation = pick(self.raw, "invitation", "Invitation", default=False)
 
     @classmethod
@@ -348,8 +426,16 @@ class Team(_Model):
 class Balance(_Model):
     def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
         self.raw = raw or {}
-        self.balance = pick(self.raw, "balance", "Balance", "current_balance",
-                            "CurrentBalance", "available_balance", "amount", "Amount")
+        self.balance = pick(
+            self.raw,
+            "balance",
+            "Balance",
+            "current_balance",
+            "CurrentBalance",
+            "available_balance",
+            "amount",
+            "Amount",
+        )
         self.formatted_balance = pick(self.raw, "formatted_balance", "FormattedBalance")
 
     @classmethod
@@ -370,11 +456,17 @@ class Balance(_Model):
 class User(_Model):
     def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
         self.raw = raw or {}
-        identity = pick(self.raw, "user") if isinstance(pick(self.raw, "user"), dict) else self.raw
+        identity = (
+            pick(self.raw, "user")
+            if isinstance(pick(self.raw, "user"), dict)
+            else self.raw
+        )
         self.id = pick(identity, "id", "ID", "user_id", "UserID")
         self.email = pick(identity, "email", "Email")
         self.name = pick(identity, "name", "Name")
-        self.teams = [Team.from_dict(t) for t in (pick(self.raw, "teams", "Teams") or [])]
+        self.teams = [
+            Team.from_dict(t) for t in (pick(self.raw, "teams", "Teams") or [])
+        ]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "User":
@@ -405,12 +497,20 @@ def parse_size(text: Any) -> Optional[int]:
         return None
     if s.isdigit():
         return int(s)
-    units = {"K": 1024, "M": 1024 ** 2, "G": 1024 ** 3, "T": 1024 ** 4, "P": 1024 ** 5}
-    for suffix, multiplier in (("KIB", 1024), ("MIB", 1024 ** 2), ("GIB", 1024 ** 3),
-                               ("TIB", 1024 ** 4), ("PIB", 1024 ** 5),
-                               ("KB", 1000), ("MB", 1000 ** 2), ("GB", 1000 ** 3),
-                               ("TB", 1000 ** 4), ("PB", 1000 ** 5),
-                               ("B", 1)):
+    units = {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4, "P": 1024**5}
+    for suffix, multiplier in (
+        ("KIB", 1024),
+        ("MIB", 1024**2),
+        ("GIB", 1024**3),
+        ("TIB", 1024**4),
+        ("PIB", 1024**5),
+        ("KB", 1000),
+        ("MB", 1000**2),
+        ("GB", 1000**3),
+        ("TB", 1000**4),
+        ("PB", 1000**5),
+        ("B", 1),
+    ):
         if s.endswith(suffix):
             num = s[: -len(suffix)] or "0"
             return int(float(num) * multiplier)
@@ -418,4 +518,6 @@ def parse_size(text: Any) -> Optional[int]:
         if s.endswith(suffix):
             num = s[: -len(suffix)] or "0"
             return int(float(num) * multiplier)
-    raise ValueError("Could not parse size %r (try e.g. 16G, 500G, 1.5T, or raw bytes)" % text)
+    raise ValueError(
+        "Could not parse size %r (try e.g. 16G, 500G, 1.5T, or raw bytes)" % text
+    )

@@ -184,7 +184,10 @@ class Client:
                 resp = self._open(req)
             except urllib.error.HTTPError as exc:
                 body = exc.read() if exc.fp else b""
-                hdrs = {k.lower(): v for k, v in (exc.headers.items() if exc.headers else [])}
+                hdrs = {
+                    k.lower(): v
+                    for k, v in (exc.headers.items() if exc.headers else [])
+                }
                 if exc.code in RETRY_STATUSES and attempt < self.max_retries:
                     last_error = (exc, Response(exc.code, hdrs, body))
                     continue
@@ -208,16 +211,20 @@ class Client:
                 body = _read_body_limited(resp, url, self.timeout)
                 response = Response(status, hdrs, body)
                 if response.status_code >= 400:
-                    return self._handle_error(response.status_code, response.body,
-                                              method, path)
+                    return self._handle_error(
+                        response.status_code, response.body, method, path
+                    )
                 return response
 
         # Retries exhausted.
         if isinstance(last_error, tuple):
-            return self._handle_error(last_error[1].status_code, last_error[1].body,
-                                      method, path)
-        raise AuthError("Request to %s failed after %d retries" % (url, self.max_retries),
-                        status_code=0)
+            return self._handle_error(
+                last_error[1].status_code, last_error[1].body, method, path
+            )
+        raise AuthError(
+            "Request to %s failed after %d retries" % (url, self.max_retries),
+            status_code=0,
+        )
 
     def _open(self, req: urllib.request.Request):
         if self._opener is not None:
@@ -232,11 +239,14 @@ class Client:
             return opener.open(req, timeout=self.timeout)
         return urllib.request.build_opener().open(req, timeout=self.timeout)
 
-    def _handle_error(self, status: int, body: bytes, method: str, path: str) -> Response:
+    def _handle_error(
+        self, status: int, body: bytes, method: str, path: str
+    ) -> Response:
         text = body.decode("utf-8", "replace") if body else ""
         if status in (401, 403):
             raise AuthError(
-                "%s %s -> HTTP %d: %s" % (method, path, status, text.strip() or "Unauthorized"),
+                "%s %s -> HTTP %d: %s"
+                % (method, path, status, text.strip() or "Unauthorized"),
                 status_code=status,
                 body=text,
             )
@@ -245,8 +255,12 @@ class Client:
     def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Response:
         return self.request("GET", path, params=params)
 
-    def post(self, path: str, json_body: Optional[Any] = None,
-             params: Optional[Dict[str, Any]] = None) -> Response:
+    def post(
+        self,
+        path: str,
+        json_body: Optional[Any] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Response:
         return self.request("POST", path, params=params, json_body=json_body)
 
     def patch(self, path: str, json_body: Optional[Any] = None) -> Response:
@@ -260,7 +274,7 @@ class Client:
         if not handle:
             raise ConfigurationError(
                 "No team specified. Pass team=... , set HOTAISLE_TEAM, set "
-                "team = \"handle\" in ~/.config/hotaisle/config.toml, or call "
+                'team = "handle" in ~/.config/hotaisle/config.toml, or call '
                 "list_teams() / `hotaisle teams` to see your options."
             )
         return "/teams/%s%s" % (urllib.parse.quote(str(handle), safe=""), suffix)
@@ -274,32 +288,44 @@ class Client:
         return [models.Team.from_dict(t) for t in (self.get("/teams/").json or [])]
 
     def get_balance(self, team: Optional[str] = None) -> models.Balance:
-        return models.Balance.from_dict(self.get(self._team_path(team, "/balance/")).json or {})
+        return models.Balance.from_dict(
+            self.get(self._team_path(team, "/balance/")).json or {}
+        )
 
     # ------------------------------------------------------- virtual machines
 
-    def list_virtual_machines(self, team: Optional[str] = None) -> List[models.VirtualMachine]:
+    def list_virtual_machines(
+        self, team: Optional[str] = None
+    ) -> List[models.VirtualMachine]:
         """GET /teams/{team}/virtual_machines/ — VMs currently assigned to the team."""
         data = self.get(self._team_path(team, "/virtual_machines/")).json or []
-        return [models.VirtualMachine.from_dict(vm, ssh_user=self.ssh_user) for vm in data]
+        return [
+            models.VirtualMachine.from_dict(vm, ssh_user=self.ssh_user) for vm in data
+        ]
 
     def list_available_virtual_machines(
         self, team: Optional[str] = None
     ) -> List[models.AvailableType]:
         """GET /teams/{team}/virtual_machines/available/ — deployable VM types + pricing."""
-        data = self.get(self._team_path(team, "/virtual_machines/available/")).json or []
+        data = (
+            self.get(self._team_path(team, "/virtual_machines/available/")).json or []
+        )
         return [models.AvailableType.from_dict(a) for a in data]
 
     def get_virtual_machine(
         self, deployment_id: str, team: Optional[str] = None
     ) -> models.VirtualMachine:
         path = self._team_path(team, "/virtual_machines/%s/" % _ident(deployment_id))
-        return models.VirtualMachine.from_dict(self.get(path).json or {}, ssh_user=self.ssh_user)
+        return models.VirtualMachine.from_dict(
+            self.get(path).json or {}, ssh_user=self.ssh_user
+        )
 
     def get_virtual_machine_state(
         self, deployment_id: str, team: Optional[str] = None
     ) -> models.VMState:
-        path = self._team_path(team, "/virtual_machines/%s/state/" % _ident(deployment_id))
+        path = self._team_path(
+            team, "/virtual_machines/%s/state/" % _ident(deployment_id)
+        )
         return models.VMState.from_dict(self.get(path).json or {})
 
     def create_virtual_machine(
@@ -320,27 +346,48 @@ class Client:
         ``ram_capacity``/``disk_capacity`` are raw bytes (as the API requires).
         Pass a full ``body`` dict to bypass the convenience arguments entirely.
         """
-        payload = body if body is not None else _vm_body(
-            cpu_cores=cpu_cores, ram_capacity=ram_capacity, disk_capacity=disk_capacity,
-            description=description, user_data_url=user_data_url, gpus=gpus, specs=specs,
+        payload = (
+            body
+            if body is not None
+            else _vm_body(
+                cpu_cores=cpu_cores,
+                ram_capacity=ram_capacity,
+                disk_capacity=disk_capacity,
+                description=description,
+                user_data_url=user_data_url,
+                gpus=gpus,
+                specs=specs,
+            )
         )
-        resp = self.post(self._team_path(team, "/virtual_machines/"),
-                         json_body=payload, params={"force": force} if force else None)
+        resp = self.post(
+            self._team_path(team, "/virtual_machines/"),
+            json_body=payload,
+            params={"force": force} if force else None,
+        )
         vm = models.VirtualMachine.from_dict(resp.json or {}, ssh_user=self.ssh_user)
-        requested = description if description is not None else (
-            (body or {}).get("description") if body is not None else None)
+        requested = (
+            description
+            if description is not None
+            else ((body or {}).get("description") if body is not None else None)
+        )
         if requested:
-            self.update_virtual_machine(vm.deployment_id, description=requested, team=team)
+            self.update_virtual_machine(
+                vm.deployment_id, description=requested, team=team
+            )
             vm.description = requested
         return vm
 
     def update_virtual_machine(
-        self, deployment_id: str, description: Optional[str] = None,
+        self,
+        deployment_id: str,
+        description: Optional[str] = None,
         team: Optional[str] = None,
     ) -> None:
         """PATCH /teams/{team}/virtual_machines/{vm}/ — update a VM's description."""
-        self.patch(self._team_path(team, "/virtual_machines/%s/" % _ident(deployment_id)),
-                 json_body={"description": description})
+        self.patch(
+            self._team_path(team, "/virtual_machines/%s/" % _ident(deployment_id)),
+            json_body={"description": description},
+        )
 
     def delete_virtual_machine(
         self, deployment_id: str, team: Optional[str] = None, force: bool = False
@@ -352,22 +399,33 @@ class Client:
         )
 
     def vm_action(
-        self, deployment_id: str, action: str, team: Optional[str] = None,
+        self,
+        deployment_id: str,
+        action: str,
+        team: Optional[str] = None,
         body: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """One of start|stop|shutdown|reboot|hard-reset|rebuild|console."""
-        path = self._team_path(team, "/virtual_machines/%s/%s/" % (_ident(deployment_id), action))
+        path = self._team_path(
+            team, "/virtual_machines/%s/%s/" % (_ident(deployment_id), action)
+        )
         resp = self.post(path, json_body=body) if body else self.post(path)
         return resp.json
 
     # ------------------------------------------------------------- bare metal
 
-    def list_bare_metal(self, team: Optional[str] = None) -> List[models.BareMetalServer]:
+    def list_bare_metal(
+        self, team: Optional[str] = None
+    ) -> List[models.BareMetalServer]:
         """GET /teams/{team}/bare_metal/ — servers currently reserved by the team."""
         data = self.get(self._team_path(team, "/bare_metal/")).json or []
-        return [models.BareMetalServer.from_dict(s, ssh_user=self.ssh_user) for s in data]
+        return [
+            models.BareMetalServer.from_dict(s, ssh_user=self.ssh_user) for s in data
+        ]
 
-    def list_available_bare_metal(self, team: Optional[str] = None) -> List[models.AvailableType]:
+    def list_available_bare_metal(
+        self, team: Optional[str] = None
+    ) -> List[models.AvailableType]:
         """GET /teams/{team}/bare_metal/available/ — reservable server types + pricing."""
         data = self.get(self._team_path(team, "/bare_metal/available/")).json or []
         return [models.AvailableType.from_dict(a) for a in data]
@@ -376,7 +434,9 @@ class Client:
         self, deployment_id: str, team: Optional[str] = None
     ) -> models.BareMetalServer:
         path = self._team_path(team, "/bare_metal/%s/" % _ident(deployment_id))
-        return models.BareMetalServer.from_dict(self.get(path).json or {}, ssh_user=self.ssh_user)
+        return models.BareMetalServer.from_dict(
+            self.get(path).json or {}, ssh_user=self.ssh_user
+        )
 
     def create_bare_metal(
         self,
@@ -394,16 +454,29 @@ class Client:
 
         Returns 201 with the reservation on success. ``specs`` is required by the API.
         """
-        payload = body if body is not None else {
-            "specs": specs if specs is not None else _specs_body(
-                cpu_cores=cpu_cores, ram_capacity=ram_capacity,
-                disk_capacity=disk_capacity, gpus=gpus,
-            )
-        }
+        payload = (
+            body
+            if body is not None
+            else {
+                "specs": (
+                    specs
+                    if specs is not None
+                    else _specs_body(
+                        cpu_cores=cpu_cores,
+                        ram_capacity=ram_capacity,
+                        disk_capacity=disk_capacity,
+                        gpus=gpus,
+                    )
+                )
+            }
+        )
         if description is not None:
             payload.setdefault("description", description)
-        resp = self.post(self._team_path(team, "/bare_metal/"),
-                         json_body=payload, params={"force": force} if force else None)
+        resp = self.post(
+            self._team_path(team, "/bare_metal/"),
+            json_body=payload,
+            params={"force": force} if force else None,
+        )
         return models.BareMetalServer.from_dict(resp.json or {}, ssh_user=self.ssh_user)
 
     def delete_bare_metal(
@@ -422,7 +495,9 @@ class Client:
         self, deployment_id: str, action: str, team: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Power/other action: power/... | reinstall | console | support_access_enable."""
-        path = self._team_path(team, "/bare_metal/%s/%s/" % (_ident(deployment_id), action))
+        path = self._team_path(
+            team, "/bare_metal/%s/%s/" % (_ident(deployment_id), action)
+        )
         return self.post(path).json
 
     def get_bare_metal_power(
@@ -444,8 +519,13 @@ class Client:
 
     # ------------------------------------------------------------------ misc
 
-    def raw(self, method: str, path: str, params: Optional[Dict[str, Any]] = None,
-            json_body: Optional[Any] = None) -> Any:
+    def raw(
+        self,
+        method: str,
+        path: str,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Any] = None,
+    ) -> Any:
         """Escape hatch for endpoints this module does not wrap yet."""
         return self.request(method, path, params=params, json_body=json_body).json
 
@@ -517,14 +597,20 @@ def _read_body_limited(resp, url: str, timeout: float) -> bytes:
         if remaining <= 0:
             raise APIError(
                 "Timed out reading the response body from %s after %ss"
-                % (url, timeout), status_code=0, path=url)
+                % (url, timeout),
+                status_code=0,
+                path=url,
+            )
         _set_socket_timeout(resp, max(0.05, min(timeout, remaining)))
         try:
             chunk = resp.read(65536)
         except (socket.timeout, TimeoutError) as exc:
             raise APIError(
                 "Timed out reading the response body from %s after %ss (%s)"
-                % (url, timeout, exc), status_code=0, path=url) from exc
+                % (url, timeout, exc),
+                status_code=0,
+                path=url,
+            ) from exc
         if not chunk:
             break
         chunks.append(chunk)
@@ -543,14 +629,20 @@ def _specs_body(
     disk_capacity: Optional[int] = None,
     gpus: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    missing = [n for n, v in (("cpu_cores", cpu_cores), ("ram_capacity", ram_capacity),
-                              ("disk_capacity", disk_capacity)) if v is None]
+    missing = [
+        n
+        for n, v in (
+            ("cpu_cores", cpu_cores),
+            ("ram_capacity", ram_capacity),
+            ("disk_capacity", disk_capacity),
+        )
+        if v is None
+    ]
     if missing:
         raise ConfigurationError(
             "Missing required spec field(s): %s. The API requires cpu_cores, "
             "ram_capacity and disk_capacity (bytes). Copy them from the "
-            "'available' listing."
-            % ", ".join(missing)
+            "'available' listing." % ", ".join(missing)
         )
     specs: Dict[str, Any] = {
         "cpu_cores": int(cpu_cores),
@@ -583,7 +675,12 @@ def specs_to_selector(avail: "models.AvailableType") -> Dict[str, Any]:
         "disk_capacity": s.disk_capacity,
     }
     if s.gpus:
-        specs["gpus"] = [{"count": g.count, "model": g.model,
-                         **({"manufacturer": g.manufacturer} if g.manufacturer else {})}
-                        for g in s.gpus]
+        specs["gpus"] = [
+            {
+                "count": g.count,
+                "model": g.model,
+                **({"manufacturer": g.manufacturer} if g.manufacturer else {}),
+            }
+            for g in s.gpus
+        ]
     return specs

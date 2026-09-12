@@ -75,10 +75,14 @@ def collect(client: Client, team: str, up_map) -> dict:
             "cpu_cores": vm.specs.cpu_cores,
             "ram_bytes": vm.specs.ram_capacity,
             "disk_bytes": vm.specs.disk_capacity,
-            "gpus": [{"count": g.count, "manufacturer": g.manufacturer,
-                      "model": g.model} for g in vm.specs.gpus],
+            "gpus": [
+                {"count": g.count, "manufacturer": g.manufacturer, "model": g.model}
+                for g in vm.specs.gpus
+            ],
             "ssh": vm.ssh_command,
-            "monitored": match_up(vm.ip_address, up_map) if up_map is not None else None,
+            "monitored": (
+                match_up(vm.ip_address, up_map) if up_map is not None else None
+            ),
         }
 
     def bm_row(s):
@@ -92,8 +96,10 @@ def collect(client: Client, team: str, up_map) -> dict:
             "cpu_cores": s.specs.cpu_cores,
             "ram_bytes": s.specs.ram_capacity,
             "disk_bytes": s.specs.disk_capacity,
-            "gpus": [{"count": g.count, "manufacturer": g.manufacturer,
-                      "model": g.model} for g in s.specs.gpus],
+            "gpus": [
+                {"count": g.count, "manufacturer": g.manufacturer, "model": g.model}
+                for g in s.specs.gpus
+            ],
             "support_access_enabled": s.support_access_enabled,
             "ssh": s.ssh_command,
             "monitored": match_up(s.ip_address, up_map) if up_map is not None else None,
@@ -122,15 +128,28 @@ def atomic_write(path: str, text: str) -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     ap.add_argument("--team", "-t", help="team handle (default: $HOTAISLE_TEAM/config)")
-    ap.add_argument("-o", "--output", default="inventory.json",
-                    help="output path, or '-' for stdout (default inventory.json)")
-    ap.add_argument("--prometheus",
-                    default=os.environ.get("HOTAISLE_PROMETHEUS", ""),
-                    help="Prometheus base URL to cross-reference up{} status")
-    ap.add_argument("--no-prometheus", action="store_true",
-                    help="skip the up{} lookup even if a URL is configured")
-    ap.add_argument("--quiet", "-q", action="store_true",
-                    help="only print problems (suitable for cron)")
+    ap.add_argument(
+        "-o",
+        "--output",
+        default="inventory.json",
+        help="output path, or '-' for stdout (default inventory.json)",
+    )
+    ap.add_argument(
+        "--prometheus",
+        default=os.environ.get("HOTAISLE_PROMETHEUS", ""),
+        help="Prometheus base URL to cross-reference up{} status",
+    )
+    ap.add_argument(
+        "--no-prometheus",
+        action="store_true",
+        help="skip the up{} lookup even if a URL is configured",
+    )
+    ap.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="only print problems (suitable for cron)",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -143,8 +162,11 @@ def main(argv=None) -> int:
     if not team:
         teams = client.list_teams()
         if len(teams) != 1:
-            print("hotaisle: pass --team (options: %s)"
-                  % ", ".join(t.handle or "?" for t in teams), file=sys.stderr)
+            print(
+                "hotaisle: pass --team (options: %s)"
+                % ", ".join(t.handle or "?" for t in teams),
+                file=sys.stderr,
+            )
             return 1
         team = teams[0].handle
 
@@ -154,8 +176,11 @@ def main(argv=None) -> int:
             up_map = prometheus_up(args.prometheus)
         except (urllib.error.URLError, OSError, ValueError, KeyError) as exc:
             # Monitoring is a bonus; never fail the inventory over it.
-            print("warning: Prometheus unreachable at %s (%s); writing inventory "
-                  "with monitored=null" % (args.prometheus, exc), file=sys.stderr)
+            print(
+                "warning: Prometheus unreachable at %s (%s); writing inventory "
+                "with monitored=null" % (args.prometheus, exc),
+                file=sys.stderr,
+            )
             up_map = None
 
     try:
@@ -170,14 +195,27 @@ def main(argv=None) -> int:
     else:
         atomic_write(args.output, text)
         if not args.quiet:
-            down = [r for section in ("virtual_machines", "bare_metal")
-                    for r in inventory[section] if r["monitored"] is False]
-            print("wrote %s: %s VM(s), %s bare metal(s), %d monitored-down"
-                  % (args.output, inventory["counts"]["virtual_machines"],
-                     inventory["counts"]["bare_metal"], len(down)))
+            down = [
+                r
+                for section in ("virtual_machines", "bare_metal")
+                for r in inventory[section]
+                if r["monitored"] is False
+            ]
+            print(
+                "wrote %s: %s VM(s), %s bare metal(s), %d monitored-down"
+                % (
+                    args.output,
+                    inventory["counts"]["virtual_machines"],
+                    inventory["counts"]["bare_metal"],
+                    len(down),
+                )
+            )
             for row in down:
-                print("  DOWN %s %s (%s)" % (row["name"], row["ip_address"],
-                                             row["deployment_id"]), file=sys.stderr)
+                print(
+                    "  DOWN %s %s (%s)"
+                    % (row["name"], row["ip_address"], row["deployment_id"]),
+                    file=sys.stderr,
+                )
     return 0
 
 
