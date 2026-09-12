@@ -114,9 +114,6 @@ def emit(
         w.writerows(rows)
         out.write(buf.getvalue())
         return
-    if not rows:
-        print(_dim("(none)"))
-        return
     print_table(rows, headers)
 
 

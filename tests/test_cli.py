@@ -8,11 +8,13 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -246,11 +248,24 @@ class CLITests(unittest.TestCase):
         self.assertIn("8h", out)
 
     def test_empty_listing(self):
-        # A team with nothing provisioned should print "(none)" not crash.
+        # A team with nothing provisioned should still emit valid JSON.
         Handler.calls.clear()
         code, out, err = run_cli("--json", "vm", "list", "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         json.loads(out)
+
+    def test_empty_listing_shows_headers(self):
+        # Default table output keeps the header and rule when empty,
+        # docker ps style.
+        ansi = re.compile(r"\x1b\[[0-9;]*m")
+        mod = sys.modules[__name__]
+        with mock.patch.object(mod, "VMS", []):
+            code, out, err = run_cli("vm", "list", "-t", "acme-corp")
+        self.assertEqual(code, 0, err)
+        lines = [ansi.sub("", line) for line in out.splitlines() if line.strip()]
+        self.assertIn("NAME", lines[0])
+        self.assertTrue(set(lines[1]) <= set("- "))
+        self.assertEqual(len(lines), 2, "lines=%r" % lines)
 
     def test_json_output_is_machine_readable(self):
         code, out, err = run_cli("--json", "vm", "list", "-t", "acme-corp")
