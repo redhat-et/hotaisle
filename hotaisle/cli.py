@@ -22,7 +22,7 @@ import time
 import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from . import models
+from . import __version__, models
 from .auth import NO_KEY_HINT, mask
 from .client import Client, specs_to_selector
 from .availability import (
@@ -1183,7 +1183,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--insecure", action="store_true", help="disable TLS verification")
     ap.add_argument("--json", action="store_true", help="machine readable JSON output")
     ap.add_argument("--csv", action="store_true", help="CSV output")
-    ap.add_argument("--version", action="version", version="hotaisle 1.0.0")
+    ap.add_argument("--version", action="version", version="hotaisle " + __version__)
 
     sub = ap.add_subparsers(dest="command", metavar="COMMAND")
 
