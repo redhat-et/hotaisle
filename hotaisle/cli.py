@@ -596,8 +596,8 @@ def cmd_bm_action(args: argparse.Namespace) -> int:
 def cmd_ssh_keys(args: argparse.Namespace) -> int:
     client = make_client(args)
     keys = client.list_ssh_keys()
-    emit([[k.get("name") or "-", k.get("fingerprint") or "-", k.get("key_type") or "-",
-           (k.get("key") or "")[:36] + "..."] for k in keys],
+    emit([[k.get("comment") or "-", k.get("fingerprint") or "-", k.get("type") or "-",
+           (k.get("public_key") or "")[:36] + "..."] for k in keys],
          ["NAME", "FINGERPRINT", "TYPE", "KEY"], args, json_data=keys)
     return EXIT_OK
 
@@ -827,9 +827,9 @@ def _render_html(stats, db, since, days, kind) -> str:
 def cmd_api_keys(args: argparse.Namespace) -> int:
     client = make_client(args)
     keys = client.raw("GET", "/user/api_keys/") or []
-    emit([[k.get("prefix") or k.get("name") or "-", k.get("name") or "-",
-           k.get("created_at") or "-", k.get("expires_at") or "never"] for k in keys],
-         ["PREFIX", "NAME", "CREATED", "EXPIRES"], args, json_data=keys)
+    emit([[k.get("prefix") or "-", k.get("label") or "-", k.get("user_role") or "-",
+           ",".join(t.get("handle", "") for t in (k.get("teams") or [])) or "-"] for k in keys],
+         ["PREFIX", "NAME", "ROLE", "TEAMS"], args, json_data=keys)
     return EXIT_OK
 
 

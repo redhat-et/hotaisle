@@ -29,6 +29,13 @@ def pick(data: Dict[str, Any], *names: str, default: Any = None) -> Any:
     return default
 
 
+def _as_list(value: Any) -> List[Any]:
+    """Coerce a single dict into a one-element list, leaving lists unchanged."""
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
 def as_bytes(value: Any) -> Optional[int]:
     """Coerce a byte count that may have arrived as an int or a string."""
     if value is None:
@@ -127,11 +134,11 @@ class Specs(_Model):
                                           "ramCapacity", default=ram_capacity))
         self.disk_capacity = as_bytes(pick(self.raw, "disk_capacity", "DiskCapacity",
                                            "diskCapacity", default=disk_capacity))
-        self.cpus = [Component.from_dict(c) for c in (pick(self.raw, "cpus", "CPUs") or [])]
+        self.cpus = [Component.from_dict(c) for c in _as_list(pick(self.raw, "cpus", "CPUs"))]
         self.memory_modules = [Component.from_dict(m) for m in
-                               (pick(self.raw, "memory_modules", "MemoryModules") or [])]
-        self.disks = [Component.from_dict(d) for d in (pick(self.raw, "disks", "Disks") or [])]
-        self.gpus = [GPU.from_dict(g) for g in (pick(self.raw, "gpus", "GPUs") or [])]
+                               _as_list(pick(self.raw, "memory_modules", "MemoryModules"))]
+        self.disks = [Component.from_dict(d) for d in _as_list(pick(self.raw, "disks", "Disks"))]
+        self.gpus = [GPU.from_dict(g) for g in _as_list(pick(self.raw, "gpus", "GPUs"))]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Specs":
@@ -342,7 +349,7 @@ class Balance(_Model):
     def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
         self.raw = raw or {}
         self.balance = pick(self.raw, "balance", "Balance", "current_balance",
-                            "CurrentBalance", "amount", "Amount")
+                            "CurrentBalance", "available_balance", "amount", "Amount")
         self.formatted_balance = pick(self.raw, "formatted_balance", "FormattedBalance")
 
     @classmethod
@@ -363,9 +370,10 @@ class Balance(_Model):
 class User(_Model):
     def __init__(self, raw: Optional[Dict[str, Any]] = None, **extra: Any):
         self.raw = raw or {}
-        self.id = pick(self.raw, "id", "ID", "user_id", "UserID")
-        self.email = pick(self.raw, "email", "Email")
-        self.name = pick(self.raw, "name", "Name")
+        identity = pick(self.raw, "user") if isinstance(pick(self.raw, "user"), dict) else self.raw
+        self.id = pick(identity, "id", "ID", "user_id", "UserID")
+        self.email = pick(identity, "email", "Email")
+        self.name = pick(identity, "name", "Name")
         self.teams = [Team.from_dict(t) for t in (pick(self.raw, "teams", "Teams") or [])]
 
     @classmethod

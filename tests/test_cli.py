@@ -46,9 +46,16 @@ class Handler(BaseHTTPRequestHandler):
                              "auth": self.headers.get("Authorization")})
         p = self.path.split("?")[0]
         if p == "/api/user/":
-            return self._send(200, {"id": 1, "email": "ops@acme.test", "name": "Ops"})
+            return self._send(200, {"user": {"id": 1, "email": "ops@acme.test", "name": "Ops"},
+                                    "teams": []})
+        if p == "/api/user/api_keys/":
+            return self._send(200, [{"prefix": "abc123", "label": "my-key", "user_role": "user",
+                                     "teams": [{"handle": "acme-corp"}]}])
         if p == "/api/teams/":
             return self._send(200, TEAMS)
+        if p == "/api/user/ssh_keys/":
+            return self._send(200, [{"fingerprint": "AA:BB", "type": "ssh-rsa",
+                                     "public_key": "ssh-rsa AAAA", "comment": "me@host"}])
 
         # Everything else is team-scoped: only acme-corp exists here, so a wrong
         # --team must genuinely 404 rather than silently succeeding.
@@ -394,6 +401,21 @@ class CLITests(unittest.TestCase):
         code, out, err = run_cli("balance", "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         self.assertIn("$250.00", out)
+
+    def test_ssh_keys(self):
+        code, out, err = run_cli("ssh-keys")
+        self.assertEqual(code, 0, err)
+        self.assertIn("me@host", out)
+        self.assertIn("ssh-rsa", out)
+        self.assertIn("ssh-rsa AAAA", out)
+
+    def test_api_keys(self):
+        code, out, err = run_cli("api-keys")
+        self.assertEqual(code, 0, err)
+        self.assertIn("abc123", out)
+        self.assertIn("my-key", out)
+        self.assertIn("user", out)
+        self.assertIn("acme-corp", out)
 
     def test_vm_state_and_bm_power(self):
         code, out, err = run_cli("vm", "state", "195116dc", "-t", "acme-corp")

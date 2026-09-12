@@ -64,8 +64,8 @@ VM_AVAILABLE = [
             "cpu_cores": 8,
             "ram_capacity": 34359738368,
             "disk_capacity": 107374182400,
-            "cpus": [{"count": 1, "manufacturer": "AMD", "model": "EPYC 9334",
-                      "cores": 32, "frequency": 2600000000}],
+            "cpus": {"count": 1, "manufacturer": "AMD", "model": "EPYC 9334",
+                     "cores": 32, "frequency": 2600000000},
             "gpus": [],
         },
     },
@@ -202,15 +202,20 @@ class FakeAPI(BaseHTTPRequestHandler):
             return self._send(500, raw="boom")
 
         table = {
-            ("GET", "/api/user/"): (200, {"id": 1, "email": "ops@acme.test",
-                                          "name": "Ops"}),
+            ("GET", "/api/user/"): (200, {"user": {"id": 1, "email": "ops@acme.test",
+                                                    "name": "Ops"}},
+                                     ),
+            ("GET", "/api/user/api_keys/"): (200, [{"prefix": "abc123", "label": "my-key",
+                                                     "user_role": "user",
+                                                     "teams": [{"handle": "acme-corp"}]}]),
             ("GET", "/api/teams/"): (200, TEAMS),
             ("GET", "/api/teams/acme-corp/balance/"): (200, {"balance": 25000}),
             ("GET", "/api/teams/acme-corp/virtual_machines/"): (200, VMS),
             ("GET", "/api/teams/acme-corp/virtual_machines/available/"): (200, VM_AVAILABLE),
             ("GET", "/api/teams/acme-corp/bare_metal/"): (200, BMS),
             ("GET", "/api/teams/acme-corp/bare_metal/available/"): (200, BM_AVAILABLE),
-            ("GET", "/api/user/ssh_keys/"): (200, [{"fingerprint": "AA:BB", "key": "ssh-rsa AAA"}]),
+            ("GET", "/api/user/ssh_keys/"): (200, [{"fingerprint": "AA:BB", "type": "ssh-rsa",
+                                                     "public_key": "ssh-rsa AAA", "comment": "me@host"}]),
         }
         if (method, clean) in table:
             code, payload = table[(method, clean)]
@@ -672,6 +677,30 @@ class HotAisleTestCase(unittest.TestCase):
 
     def test_balance_model(self):
         self.assertEqual(str(self.client.get_balance()), "$250.00")
+
+    def test_balance_model_available_balance_field(self):
+        bal = models.Balance.from_dict({"available_balance": -60039})
+        self.assertEqual(str(bal), "$-600.39")
+
+    def test_user_model_unwraps_user_key(self):
+        user = models.User.from_dict(
+            {"user": {"id": 1, "email": "ops@acme.test", "name": "Ops"},
+             "teams": [{"handle": "acme-corp"}]})
+        self.assertEqual(user.id, 1)
+        self.assertEqual(user.email, "ops@acme.test")
+        self.assertEqual(user.name, "Ops")
+        self.assertEqual([t.handle for t in user.teams], ["acme-corp"])
+
+    def test_specs_accepts_single_cpu_dict(self):
+        specs = models.Specs.from_dict(
+            {"cpus": {"count": 1, "manufacturer": "AMD", "model": "EPYC", "cores": 32}})
+        self.assertEqual(len(specs.cpus), 1)
+        self.assertEqual(specs.cpus[0].model, "EPYC")
+        self.assertEqual(specs.cpus[0].cores, 32)
+
+    def test_client_get_api_keys_uses_label(self):
+        keys = self.client.raw("GET", "/user/api_keys/")
+        self.assertEqual(keys[0]["label"], "my-key")
 
     def test_vm_state(self):
         st = self.client.get_virtual_machine_state("195116dc-32ed-49e5-a738-5e2ad0cdd141")
