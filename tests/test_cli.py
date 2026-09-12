@@ -92,6 +92,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True})
         if self.command == "DELETE":
             return self._send(204)
+        if self.command == "PATCH" and "/virtual_machines/" in p:
+            return self._send(204)
         return self._send(404, raw="Not Found")
 
     do_GET = do_POST = do_DELETE = do_PATCH = do_PUT = handle_one
@@ -231,13 +233,15 @@ class CLITests(unittest.TestCase):
                                  "-t", "acme-corp")
         self.assertEqual(code, 0, err)
         self.assertIn("provisioned", out)
-        sent = json.loads(Handler.calls[-1]["body"])
+        sent = json.loads([c for c in Handler.calls if c["method"] == "POST"][-1]["body"])
         # Exact match on 8 vCPU / 32 GiB / 100 GiB shape, flattened for VMs.
         self.assertEqual(sent["cpu_cores"], 8)
         self.assertEqual(sent["ram_capacity"], 34359738368)
         self.assertEqual(sent["disk_capacity"], 107374182400)
-        self.assertEqual(sent["description"], "worker")
+        self.assertNotIn("description", sent)
         self.assertNotIn("specs", sent)
+        self.assertEqual(Handler.calls[-1]["method"], "PATCH")
+        self.assertEqual(json.loads(Handler.calls[-1]["body"]), {"description": "worker"})
 
     def test_bm_create_selects_exact_spec_shape(self):
         code, out, err = run_cli("bm", "create", "--cpu-cores", "64", "--ram", "512G",
@@ -431,6 +435,30 @@ class CLITests(unittest.TestCase):
         self.assertTrue(Handler.calls[-1]["path"].endswith("/virtual_machines/"
                                                           "195116dc-32ed-49e5-a738-"
                                                           "5e2ad0cdd141/stop/"))
+
+    def test_vm_update(self):
+        code, out, err = run_cli("vm", "update", "vm-01", "--description", "renamed",
+                                 "-t", "acme-corp")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(Handler.calls[-1]["method"], "PATCH")
+        self.assertTrue(Handler.calls[-1]["path"].endswith("/virtual_machines/"
+                                                          "195116dc-32ed-49e5-a738-"
+                                                          "5e2ad0cdd141/"))
+        self.assertIn("renamed", json.loads(Handler.calls[-1]["body"])["description"])
+
+    def test_vm_update_requires_description(self):
+        code, out, err = run_cli("vm", "update", "vm-01", "-t", "acme-corp")
+        self.assertNotEqual(code, 0)
+        self.assertNotIn("PATCH", [c["method"] for c in Handler.calls])
+
+    def test_vm_create_with_description_patches(self):
+        code, out, err = run_cli("vm", "create", "--json-body",
+                                 '{"cpu_cores":8,"ram_capacity":34359738368,'
+                                 '"disk_capacity":107374182400}',
+                                 "--description", "build box", "--yes", "-t", "acme-corp")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(Handler.calls[-1]["method"], "PATCH")
+        self.assertEqual(json.loads(Handler.calls[-1]["body"])["description"], "build box")
 
     def test_bm_power_action_requires_confirm(self):
         code, out, err = run_cli("bm", "action", "server-01", "power/cold_reboot",

@@ -277,10 +277,6 @@ def cmd_vm_list(args: argparse.Namespace) -> int:
                  v.description or "-"] for v in vms]
         headers = ["NAME", "DEPLOYMENT ID", "SHAPE", "SSH", "DESCRIPTION"]
     emit(rows, headers, args, json_data=[v.raw for v in vms])
-    if vms and not (args.json or args.csv) and not args.no_ssh_hint:
-        first = next((v.ssh_command for v in vms if v.ssh_command), None)
-        if first:
-            print(_dim("\nfirst host: %s" % first))
     return EXIT_OK
 
 
@@ -331,7 +327,7 @@ def _create_common(args: argparse.Namespace, client: Client, kind: str, team: st
             body = json.loads(args.json_body)
         except json.JSONDecodeError as exc:
             die("--json-body is not valid JSON: %s" % exc)
-        if args.description:
+        if kind == "bm" and args.description:
             body.setdefault("description", args.description)
         return body if kind == "vm" else {"specs": body.get("specs", body)}
 
@@ -376,7 +372,7 @@ def _create_common(args: argparse.Namespace, client: Client, kind: str, team: st
                          best.minimum_reservation)), file=sys.stderr)
 
     body: Dict[str, Any] = {"specs": specs} if kind == "bm" else dict(specs)
-    if args.description:
+    if kind == "bm" and args.description:
         body["description"] = args.description
     if kind == "vm" and args.user_data_url:
         body["user_data_url"] = args.user_data_url
@@ -414,7 +410,8 @@ def cmd_vm_create(args: argparse.Namespace) -> int:
     body = _create_common(args, client, "vm", team)
     if not _preview(body, "virtual machine", team, args):
         return EXIT_OK
-    vm = client.create_virtual_machine(body=body, force=args.force, team=team)
+    vm = client.create_virtual_machine(body=body, description=args.description,
+                                   force=args.force, team=team)
     _report_created_vm(vm)
     return EXIT_OK
 
@@ -528,6 +525,17 @@ def cmd_vm_get(args: argparse.Namespace) -> int:
                     ["NAME", "DEPLOYMENT ID", "SHAPE", "IP", "DESCRIPTION"])
         if vm.ssh_command:
             print(_dim("\n%s" % vm.ssh_command))
+    return EXIT_OK
+
+
+def cmd_vm_update(args: argparse.Namespace) -> int:
+    client = make_client(args)
+    team = resolve_team(client, args)
+    if not args.description:
+        die("vm update needs --description")
+    target = _resolve_vm_identity(client, team, args.target)
+    client.update_virtual_machine(target["id"], description=args.description, team=team)
+    print(_green("updated %s: %s" % (target["id"], args.description)))
     return EXIT_OK
 
 
@@ -933,7 +941,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_listing_flags(p)
     _add_common_flags(p)
     p.add_argument("--detail", action="store_true", help="show full shape instead of SSH target")
-    p.add_argument("--no-ssh-hint", action="store_true")
     p.set_defaults(func=cmd_vm_list)
 
     p = vsub.add_parser("available", aliases=["avail"],
@@ -957,6 +964,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("deployment_id")
     p.add_argument("--json", action="store_true", default=_S)
     p.set_defaults(func=cmd_vm_get)
+
+    p = vsub.add_parser("update", aliases=["edit"], help="update a VM's description")
+    _add_common_flags(p)
+    p.add_argument("target")
+    p.add_argument("--description", help="new VM description")
+    p.set_defaults(func=cmd_vm_update)
 
     p = vsub.add_parser("state", help="show a VM's runtime state")
     _add_common_flags(p)

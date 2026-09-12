@@ -326,7 +326,21 @@ class Client:
         )
         resp = self.post(self._team_path(team, "/virtual_machines/"),
                          json_body=payload, params={"force": force} if force else None)
-        return models.VirtualMachine.from_dict(resp.json or {}, ssh_user=self.ssh_user)
+        vm = models.VirtualMachine.from_dict(resp.json or {}, ssh_user=self.ssh_user)
+        requested = description if description is not None else (
+            (body or {}).get("description") if body is not None else None)
+        if requested:
+            self.update_virtual_machine(vm.deployment_id, description=requested, team=team)
+            vm.description = requested
+        return vm
+
+    def update_virtual_machine(
+        self, deployment_id: str, description: Optional[str] = None,
+        team: Optional[str] = None,
+    ) -> None:
+        """PATCH /teams/{team}/virtual_machines/{vm}/ — update a VM's description."""
+        self.patch(self._team_path(team, "/virtual_machines/%s/" % _ident(deployment_id)),
+                 json_body={"description": description})
 
     def delete_virtual_machine(
         self, deployment_id: str, team: Optional[str] = None, force: bool = False
@@ -555,8 +569,6 @@ def _vm_body(**kw: Any) -> Dict[str, Any]:
         disk_capacity=kw.get("disk_capacity"),
         gpus=kw.get("gpus"),
     )
-    if kw.get("description"):
-        body["description"] = kw["description"]
     if kw.get("user_data_url"):
         body["user_data_url"] = kw["user_data_url"]
     return body

@@ -241,6 +241,8 @@ class FakeAPI(BaseHTTPRequestHandler):
             })
         if method == "DELETE" and clean.startswith("/api/teams/acme-corp/virtual_machines/"):
             return self._send(204)
+        if method == "PATCH" and clean.startswith("/api/teams/acme-corp/virtual_machines/"):
+            return self._send(204)
         if method == "DELETE" and clean.startswith("/api/teams/acme-corp/bare_metal/"):
             return self._send(204)
         if method == "POST" and "/power/power_on/" in clean:
@@ -515,13 +517,29 @@ class HotAisleTestCase(unittest.TestCase):
         vm = self.client.create_virtual_machine(cpu_cores=8, ram_capacity=34359738368,
                                                disk_capacity=107374182400,
                                                description="worker")
-        body = json.loads(FakeAPI.calls[-1]["body"])
+        post = [c for c in FakeAPI.calls if c["method"] == "POST"][-1]
+        body = json.loads(post["body"])
         # VM bodies carry specs flattened at top level, not nested.
         self.assertEqual(body["cpu_cores"], 8)
-        self.assertEqual(body["description"], "worker")
+        self.assertNotIn("description", body)
         self.assertNotIn("specs", body)
-        self.assertEqual(FakeAPI.calls[-1]["content_type"], "application/json")
+        self.assertEqual(post["content_type"], "application/json")
         self.assertEqual(vm.deployment_id, "new-vm-id")
+
+    def test_create_vm_with_description_patches_after_create(self):
+        vm = self.client.create_virtual_machine(cpu_cores=8, ram_capacity=34359738368,
+                                               disk_capacity=107374182400,
+                                               description="worker")
+        self.assertEqual(vm.description, "worker")
+        self.assertEqual(FakeAPI.calls[-1]["method"], "PATCH")
+        self.assertTrue(FakeAPI.calls[-1]["path"].endswith("/virtual_machines/new-vm-id/"))
+        self.assertEqual(json.loads(FakeAPI.calls[-1]["body"]), {"description": "worker"})
+
+    def test_update_virtual_machine_patches_description(self):
+        self.client.update_virtual_machine("vm-01", description="renamed")
+        self.assertEqual(FakeAPI.calls[-1]["method"], "PATCH")
+        self.assertTrue(FakeAPI.calls[-1]["path"].endswith("/virtual_machines/vm-01/"))
+        self.assertEqual(json.loads(FakeAPI.calls[-1]["body"]), {"description": "renamed"})
 
     def test_create_vm_sends_user_data_url(self):
         self.client.create_virtual_machine(cpu_cores=8, ram_capacity=1, disk_capacity=1,
