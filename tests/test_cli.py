@@ -267,6 +267,21 @@ class CLITests(unittest.TestCase):
         self.assertTrue(set(lines[1]) <= set("- "))
         self.assertEqual(len(lines), 2, "lines=%r" % lines)
 
+    def test_empty_id_gives_usage_error(self):
+        for argv in (
+            ("vm", "get", ""),
+            ("vm", "state", ""),
+            ("vm", "action", "", "stop"),
+            ("vm", "delete", ""),
+            ("bm", "power", ""),
+        ):
+            with self.subTest(argv=argv):
+                before = len(Handler.calls)
+                code, out, err = run_cli(*argv, "-t", "acme-corp")
+                self.assertEqual(code, 2, err)
+                self.assertIn("usage", err.lower())
+                self.assertEqual(len(Handler.calls), before)
+
     def test_json_output_is_machine_readable(self):
         code, out, err = run_cli("--json", "vm", "list", "-t", "acme-corp")
         self.assertEqual(code, 0, err)

@@ -231,10 +231,11 @@ hotaisle vm delete <deployment_id> --dry-run
 
 ```sh
 hotaisle whoami | teams | balance | api-keys | ssh-keys
-hotaisle vm get <id> | state <id>
+hotaisle vm get 195116dc-32ed-49e5-a738-5e2ad0cdd141
+hotaisle vm state 195116dc-32ed-49e5-a738-5e2ad0cdd141   # get/state/power take
+hotaisle bm power 77b3e2a2-5a67-4c07-9f2e-9d5d6f0a1b2c   # the deployment_id
 hotaisle vm update <id-or-name> --description "..."
 hotaisle vm action <id-or-name> start|stop|shutdown|reboot|hard-reset|rebuild|console
-hotaisle bm power <id>
 hotaisle bm action <id-or-name> reinstall|console|support_access_enable|power/...
 hotaisle raw GET /user/                  # any endpoint not wrapped yet
 ```

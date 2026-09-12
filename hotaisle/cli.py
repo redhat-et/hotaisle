@@ -122,6 +122,12 @@ def die(message: str, code: int = EXIT_ERROR) -> "NoReturn":  # type: ignore[val
     sys.exit(code)
 
 
+def _require_ident(value: str, usage: str) -> str:
+    if not (value or "").strip():
+        die("usage: %s" % usage, EXIT_USAGE)
+    return value
+
+
 # ------------------------------------------------------------------ resolution
 
 
@@ -627,6 +633,10 @@ def _resolve_identity(
     client: Client, team: str, target: str, kind: str
 ) -> Dict[str, str]:
     """Accept a deployment_id or a friendly name; return {'id','name'}."""
+    _require_ident(
+        target,
+        "hotaisle %s <verb> <id-or-name>" % ("vm" if kind == "vm" else "bm"),
+    )
     if kind == "vm":
         listing = client.list_virtual_machines(team)
     else:
@@ -661,6 +671,7 @@ def _resolve_bm_identity(client, team, target):
 def cmd_vm_get(args: argparse.Namespace) -> int:
     client = make_client(args)
     team = resolve_team(client, args)
+    _require_ident(args.deployment_id, "hotaisle vm get <deployment_id>")
     vm = client.get_virtual_machine(args.deployment_id, team=team)
     if args.json:
         emit([], [], args, json_data=vm.raw)
@@ -696,6 +707,7 @@ def cmd_vm_update(args: argparse.Namespace) -> int:
 def cmd_vm_state(args: argparse.Namespace) -> int:
     client = make_client(args)
     team = resolve_team(client, args)
+    _require_ident(args.deployment_id, "hotaisle vm state <deployment_id>")
     state = client.get_virtual_machine_state(args.deployment_id, team=team)
     if args.json:
         emit([], [], args, json_data=state.raw)
@@ -707,6 +719,7 @@ def cmd_vm_state(args: argparse.Namespace) -> int:
 def cmd_bm_power(args: argparse.Namespace) -> int:
     client = make_client(args)
     team = resolve_team(client, args)
+    _require_ident(args.deployment_id, "hotaisle bm power <deployment_id>")
     state = client.get_bare_metal_power(args.deployment_id, team=team)
     if args.json:
         emit([], [], args, json_data={"state": state})
