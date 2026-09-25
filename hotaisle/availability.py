@@ -238,6 +238,7 @@ class ShapeStats:
     availability_pct: float
     first_seen: Optional[float]
     last_seen: Optional[float]
+    last_available: Optional[float]
     last_quantity: int
     max_quantity: int
 
@@ -264,6 +265,9 @@ def summarize(
                 availability_pct=100.0 * avails / len(rows) if rows else 0.0,
                 first_seen=rows[0]["ts"],
                 last_seen=rows[-1]["ts"],
+                last_available=next(
+                    (r["ts"] for r in reversed(rows) if r["quantity"] > 0), None
+                ),
                 last_quantity=rows[-1]["quantity"],
                 max_quantity=max(r["quantity"] for r in rows),
             )

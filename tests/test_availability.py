@@ -143,10 +143,10 @@ class AvailabilityTestCase(unittest.TestCase):
 
     def test_summary_computes_pct_and_rare(self):
         # Two sweeps. In both, "common" is present; "rare" only in the first.
-        self.db.record(
-            "vm", [_avail("common", 3), _avail("rare", 1)], ts=time.time() - 600
-        )
-        self.db.record("vm", [_avail("common", 2)], ts=time.time())
+        t0 = time.time() - 600
+        t1 = time.time()
+        self.db.record("vm", [_avail("common", 3), _avail("rare", 1)], ts=t0)
+        self.db.record("vm", [_avail("common", 2)], ts=t1)
         stats = summarize(self.db, since=time.time() - 3600)
         by_label = {s.label: s for s in stats}
         self.assertIn("test-common", by_label)
@@ -155,6 +155,21 @@ class AvailabilityTestCase(unittest.TestCase):
         # quantity once.
         self.assertEqual(by_label["test-common"].availability_pct, 100.0)
         self.assertEqual(by_label["test-rare"].availability_pct, 50.0)
+        # last_available is the newest sample with quantity > 0 within the window.
+        self.assertEqual(by_label["test-common"].last_available, t1)
+        self.assertEqual(by_label["test-rare"].last_available, t0)
+        self.assertEqual(by_label["test-rare"].last_seen, t1)  # absent still ticks
+
+    def test_last_available_none_when_never_in_stock(self):
+        t0 = time.time() - 600
+        t1 = time.time()
+        self.db.record("vm", [_avail("empty", 0)], ts=t0)
+        self.db.record("vm", [_avail("empty", 0)], ts=t1)
+        stats = summarize(self.db, since=time.time() - 3600)
+        s = stats[0]
+        self.assertEqual(s.last_available, None)
+        self.assertEqual(s.last_seen, t1)  # watcher still accounted for the shape
+        self.assertEqual(s.availability_pct, 0.0)
 
     def test_kind_filter_in_summary(self):
         self.db.record("vm", [_avail("a", 1)], ts=time.time())

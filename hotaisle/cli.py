@@ -933,6 +933,7 @@ def cmd_avail_report(args: argparse.Namespace) -> int:
                         "max_quantity": s.max_quantity,
                         "first_seen": _fmt_ts(s.first_seen),
                         "last_seen": _fmt_ts(s.last_seen),
+                        "last_available": _fmt_ts(s.last_available),
                     }
                     for s in stats
                 ],
@@ -977,8 +978,14 @@ def cmd_avail_report(args: argparse.Namespace) -> int:
         rare = sorted(stats, key=lambda s: s.availability_pct)
         for s in rare[: args.top]:
             print(
-                "  %-34s %5.0f%% avail  (last %s, max seen %d)"
-                % (s.label, s.availability_pct, _fmt_ts(s.last_seen), s.max_quantity)
+                "  %-34s %5.0f%% avail  (last seen %s, last available %s, max seen %d)"
+                % (
+                    s.label,
+                    s.availability_pct,
+                    _fmt_ts(s.last_seen),
+                    _fmt_ts(s.last_available),
+                    s.max_quantity,
+                )
             )
         return EXIT_OK
     finally:
@@ -1044,7 +1051,7 @@ def _render_html(stats, db, since, days, kind) -> str:
         color = "#e05555" if pct < 25 else ("#e0a93e" if pct < 60 else "#4a9e6a")
         rows_html.append(
             "<tr><td>%s</td><td>%s</td><td style='background:%s'>%.0f%%</td>"
-            "<td>%d</td><td>%d</td><td>%s</td></tr>"
+            "<td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>"
             % (
                 esc(s.kind),
                 esc(s.label),
@@ -1053,6 +1060,7 @@ def _render_html(stats, db, since, days, kind) -> str:
                 s.max_quantity,
                 s.last_quantity,
                 esc(_fmt_ts(s.last_seen)),
+                esc(_fmt_ts(s.last_available)),
             )
         )
     html = """<!doctype html>
@@ -1062,7 +1070,7 @@ def _render_html(stats, db, since, days, kind) -> str:
 <a href="/">all</a> | <a href="/?kind=vm">VMs</a> | <a href="/?kind=bm">Bare metal</a>
 | <a href="/?days=1">1d</a> <a href="/?days=7">7d</a> <a href="/?days=30">30d</a>
 <table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:monospace">
-<tr><th>kind</th><th>shape</th><th>avail</th><th>max qty</th><th>last qty</th><th>last seen</th></tr>
+<tr><th>kind</th><th>shape</th><th>avail</th><th>max qty</th><th>last qty</th><th>last seen</th><th>last available</th></tr>
 %s
 </table>
 </body></html>""" % (days, (" (kind=%s)" % kind if kind else ""), "\n".join(rows_html))
